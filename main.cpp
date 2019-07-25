@@ -27,10 +27,20 @@ class DataBase {
         // Persistence
         void recover(string logfilename);
 
+        // returns if the database *or the write set* has the specified key
+        bool has_key(Key key);
+
         // TODO: allow other types (string, char, ...)
         // TODO: impl B+-tree (future work)
-        map<Key, int> table_;
+        map<Key, int> table_ = {};
 
+        enum ChangeMode {
+            New,    // insert or update
+            Delete  // delete
+        };
+        map<Key, pair<ChangeMode, int>> write_set_ = {};
+
+        bool transaction_mode_ = false;
         string dumpfilename_;
         string logfilename_;
         ofstream ofs_log_;
@@ -88,7 +98,7 @@ DataBase::DataBase(string dumpfilename, string logfilename)
 
 DataBase::~DataBase() {
     ofstream ofs_dump(dumpfilename_);  // dump file will be truncated
-    for (const auto& [key, value] : table_){
+    for (const auto& [key, value] : table_) {
         ofs_dump << key << " " << value << endl;
     }
 
@@ -104,17 +114,46 @@ void DataBase::recover(string logfilename) {
 // ---------------------------- Transaction Logic ------------------------------
 
 void DataBase::begin() {
+    write_set_ = {};
+    transaction_mode_ = true;
 }
 
 void DataBase::commit() {
+    // flush write_set_ to log file
+
+    // single threadなのでcommit処理が失敗することはない
+    // -> すぐにDB本体に書き出して良い
+
+    // apply write_set_ to table_
+    for (const auto& [key, value] : write_set_) {
+        if (value.first == New)
+            table_[key] = value.second;
+        else
+            table_.erase(key);
+    }
+
+    write_set_ = {};
+    transaction_mode_ = false;
 }
 
 void DataBase::abort() {
+    // write setを捨てるだけ
+    write_set_ = {};
+    transaction_mode_ = false;
 }
 
 // --------------------------- DataBase operations -----------------------------
 
 int DataBase::insert(Key key, int val) {
+    if (transaction_mode_) {
+        if (has_key(key)) {
+            cerr << "The key " << key << " already exists" << endl;
+            return 1;
+        }
+        write_set_[key] = make_pair(New, val);
+        return 0;
+    }
+
     if (table_.count(key) > 0) {
         cerr << "The key " << key << " already exists" << endl;
         return 1;
@@ -124,6 +163,15 @@ int DataBase::insert(Key key, int val) {
 }
 
 int DataBase::update(Key key, int val) {
+    if (transaction_mode_) {
+        if (!has_key(key)) {
+            cerr << "The key " << key << " doesn't exist" << endl;
+            return 1;
+        }
+        write_set_[key] = make_pair(New, val);
+        return 0;
+    }
+
     if (table_.count(key) <= 0) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return 1;
@@ -134,6 +182,21 @@ int DataBase::update(Key key, int val) {
 
 // optional使うのはやりすぎだろうか
 optional<int> DataBase::read(Key key) {
+    if (transaction_mode_) {
+        if (!has_key(key)) {
+            cerr << "The key " << key << " doesn't exist" << endl;
+            return 1;
+        }
+
+        // read from the write set
+        if (write_set_.count(key) > 0) {
+            assert(write_set_[key].first == New);
+            return write_set_[key].second;
+        }
+
+        return table_[key];
+    }
+
     if (table_.count(key) <= 0) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return nullopt;
@@ -142,12 +205,28 @@ optional<int> DataBase::read(Key key) {
 }
 
 int DataBase::del(Key key) {
+    if (transaction_mode_) {
+        if (!has_key(key)) {
+            cerr << "The key " << key << " doesn't exist" << endl;
+            return 1;
+        }
+        write_set_[key] = make_pair(Delete, 0);
+        return 0;
+    }
+
     if (table_.count(key) <= 0) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return 1;
     }
     table_.erase(key);
     return 0;
+}
+
+bool DataBase::has_key(Key key) {
+    if (write_set_.count(key) <= 0) {
+        return table_.count(key) > 0;
+    }
+    return (write_set_[key].first == New);
 }
 
 // for debug
@@ -170,20 +249,23 @@ int main()
     const string logfilename = ".seccampDB_log";
     DataBase *db = new DataBase(dumpfilename, logfilename);
 
+    db->begin();
     db->insert("key1", 1);
     db->update("key1", 2);
     tryread(db, "key1");
+    db->commit();
+    tryread(db, "key1");
     delete db;
 
-    cat(dumpfilename);
+    // cat(dumpfilename);
 
-    DataBase *db2 = new DataBase(dumpfilename, logfilename);
-    tryread(db2, "key1");
-    db2->del("key1");
-    db2->insert("key2", 0);
-    tryread(db2, "key1");
+    // DataBase *db2 = new DataBase(dumpfilename, logfilename);
+    // tryread(db2, "key1");
+    // db2->del("key1");
+    // db2->insert("key2", 0);
+    // tryread(db2, "key1");
 
-    delete db2;
+    // delete db2;
 
     return 0;
 }

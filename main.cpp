@@ -3,7 +3,10 @@
 #include <optional>
 #include <string>
 #include "database.h"
-using namespace std; // for debug
+
+using namespace std;
+
+// for debug
 void cat(string filename) {
     ifstream ifs(filename);
     string str;

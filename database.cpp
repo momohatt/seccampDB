@@ -1,7 +1,6 @@
-#include <iostream>
-#include <fstream>
-#include <string>
 #include "database.h"
+
+#include <iostream>
 using namespace std;
 
 /*
@@ -36,6 +35,7 @@ using namespace std;
 
 DataBase::DataBase(string dumpfilename, string logfilename)
   : dumpfilename_(dumpfilename),
+    logfilename_(logfilename),
     ofs_log_(logfilename, ios_base::app)
 {
     // 前回のDBファイルをメモリに読み出し
@@ -51,7 +51,7 @@ DataBase::DataBase(string dumpfilename, string logfilename)
     ifs_dump.close();
 
     // (必要なら) crash recovery
-    recover(logfilename);
+    recover();
 }
 
 DataBase::~DataBase() {
@@ -64,8 +64,8 @@ DataBase::~DataBase() {
     ofs_log_.close();
 }
 
-void DataBase::recover(string logfilename) {
-    ifstream ifs_log(logfilename);
+void DataBase::recover() {
+    ifstream ifs_log(logfilename_);
     ifs_log.close();
 }
 

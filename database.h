@@ -1,8 +1,10 @@
 #ifndef __DATABASE_H__
 #define __DATABASE_H__
 
+#include <fstream>
 #include <map>
 #include <optional>
+#include <string>
 using namespace std;
 
 class DataBase {
@@ -25,7 +27,7 @@ class DataBase {
 
     private:
         // Persistence
-        void recover(string logfilename);
+        void recover();
 
         // returns if the database *or the write set* has the specified key
         bool has_key(Key key);

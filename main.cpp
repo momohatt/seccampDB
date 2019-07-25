@@ -3,9 +3,7 @@
 #include <optional>
 #include <string>
 #include "database.h"
-using namespace std;
-
-// for debug
+using namespace std; // for debug
 void cat(string filename) {
     ifstream ifs(filename);
     string str;
@@ -23,25 +21,16 @@ int main()
 {
     const string dumpfilename = ".seccampDB_dump";
     const string logfilename = ".seccampDB_log";
-    DataBase *db = new DataBase(dumpfilename, logfilename);
 
+    DataBase* db = new DataBase(dumpfilename, logfilename);
     db->begin();
-    db->insert("key1", 1);
-    db->update("key1", 2);
-    tryread(db, "key1");
+    db->insert("key1", 35);
+    assert(db->read("key1").value() == 35);
+    db->del("key1");
+    assert(db->read("key1").has_value() == false);
     db->commit();
-    tryread(db, "key1");
+    assert(db->read("key1").has_value() == false);
     delete db;
-
-    // cat(dumpfilename);
-
-    // DataBase *db2 = new DataBase(dumpfilename, logfilename);
-    // tryread(db2, "key1");
-    // db2->del("key1");
-    // db2->insert("key2", 0);
-    // tryread(db2, "key1");
-
-    // delete db2;
 
     return 0;
 }

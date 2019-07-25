@@ -1,6 +1,5 @@
 #include <iostream>
 #include <fstream>
-#include <optional>
 #include <string>
 #include "database.h"
 using namespace std;
@@ -143,7 +142,7 @@ optional<int> DataBase::read(Key key) {
     if (transaction_mode_) {
         if (!has_key(key)) {
             cerr << "The key " << key << " doesn't exist" << endl;
-            return 1;
+            return nullopt;
         }
 
         // read from the write set

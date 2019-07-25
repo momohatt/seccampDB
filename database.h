@@ -2,6 +2,7 @@
 #define __DATABASE_H__
 
 #include <map>
+#include <optional>
 using namespace std;
 
 class DataBase {

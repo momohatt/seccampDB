@@ -1,4 +1,5 @@
 .seccampDB_dump
 .seccampDB_log
-main
 *.o
+main
+test

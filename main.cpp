@@ -33,6 +33,7 @@ int main()
     assert(db->read("key1").has_value() == false);
     db->commit();
     assert(db->read("key1").has_value() == false);
+    db->insert("key2", 40);
     delete db;
 
     return 0;

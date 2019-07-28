@@ -26,20 +26,23 @@ class DataBase {
         int del(Key key);
 
     private:
+        enum ChangeMode {
+            New,    // insert or update
+            Delete  // delete
+        };
+
         // Persistence
         void recover();
 
         // returns if the database *or the write set* has the specified key
         bool has_key(Key key);
 
+        // log single (non-transaction) commands to log file
+        void log_non_transaction(ChangeMode mode, Key key, int val);
+
         // TODO: allow other types (string, char, ...)
         // TODO: impl B+-tree (future work)
         map<Key, int> table_ = {};
-
-        enum ChangeMode {
-            New,    // insert or update
-            Delete  // delete
-        };
         map<Key, pair<ChangeMode, int>> write_set_ = {};
 
         bool transaction_mode_ = false;

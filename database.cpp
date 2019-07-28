@@ -55,6 +55,7 @@ DataBase::DataBase(string dumpfilename, string logfilename)
 }
 
 DataBase::~DataBase() {
+    // checkpointing
     ofstream ofs_dump(dumpfilename_);  // dump file will be truncated
     for (const auto& [key, value] : table_) {
         ofs_dump << key << " " << value << endl;
@@ -62,10 +63,21 @@ DataBase::~DataBase() {
 
     ofs_dump.close();
     ofs_log_.close();
+
+    // clear log file
+    ofs_log_.open(logfilename_, ios_base::trunc);
+    ofs_log_.close();
 }
 
 void DataBase::recover() {
     ifstream ifs_log(logfilename_);
+    string str;
+    bool in_transaction;
+
+    while (getline(ifs_log, str)) {
+        // TODO
+    }
+
     ifs_log.close();
 }
 
@@ -78,6 +90,11 @@ void DataBase::begin() {
 
 void DataBase::commit() {
     // flush write_set_ to log file
+    for (const auto& [key, value] : write_set_) {
+        ofs_log_ << "{" << endl;
+        ofs_log_ << key << " " << value.first << " " << value.second << endl;
+        ofs_log_ << "}" << endl;
+    }
 
     // single threadなのでcommit処理が失敗することはない
     // -> すぐにDB本体に書き出して良い
@@ -116,6 +133,7 @@ int DataBase::insert(Key key, int val) {
         cerr << "The key " << key << " already exists" << endl;
         return 1;
     }
+    log_non_transaction(New, key, val);
     table_[key] = val;
     return 0;
 }
@@ -134,6 +152,7 @@ int DataBase::update(Key key, int val) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return 1;
     }
+    log_non_transaction(New, key, val);
     table_[key] = val;
     return 0;
 }
@@ -175,6 +194,7 @@ int DataBase::del(Key key) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return 1;
     }
+    log_non_transaction(Delete, key, 0);
     table_.erase(key);
     return 0;
 }
@@ -184,4 +204,10 @@ bool DataBase::has_key(Key key) {
         return table_.count(key) > 0;
     }
     return (write_set_[key].first == New);
+}
+
+void DataBase::log_non_transaction(ChangeMode mode, Key key, int val) {
+    ofs_log_ << "{" << endl;
+    ofs_log_ << key << " " << mode << " " << val << endl;
+    ofs_log_ << "}" << endl;
 }

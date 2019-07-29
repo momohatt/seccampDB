@@ -17,29 +17,28 @@ void init() {
 }
 
 void test_basics() {
-    DataBase* db = new DataBase(dumpfilename, logfilename);
-
+    unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
     db->insert("key1", 1);
     assert(db->read("key1").value() == 1);
     db->update("key1", 2);
     assert(db->read("key1").value() == 2);
     db->del("key1");
     assert(db->read("key1").has_value() == false);
-    delete db;
+    db.reset();
 }
 
 void test_persistence() {
-    DataBase* db1 = new DataBase(dumpfilename, logfilename);
+    unique_ptr<DataBase> db1(new DataBase(dumpfilename, logfilename));
     db1->insert("key1", 5);
-    delete db1;
+    db1.reset();
 
-    DataBase* db2 = new DataBase(dumpfilename, logfilename);
+    unique_ptr<DataBase> db2(new DataBase(dumpfilename, logfilename));
     assert(db2->read("key1").value() == 5);
-    delete db2;
+    db2.reset();
 }
 
 void test_commit() {
-    DataBase* db = new DataBase(dumpfilename, logfilename);
+    unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
     db->begin();
     db->insert("key1", 35);
     assert(db->read("key1").value() == 35);
@@ -47,17 +46,17 @@ void test_commit() {
     assert(db->read("key1").has_value() == false);
     db->commit();
     assert(db->read("key1").has_value() == false);
-    delete db;
+    db.reset();
 }
 
 void test_abort() {
-    DataBase* db = new DataBase(dumpfilename, logfilename);
+    unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
     db->begin();
     db->insert("key1", 23);
     assert(db->read("key1").value() == 23);
     db->abort();
     assert(db->read("key1").has_value() == false);
-    delete db;
+    db.reset();
 }
 
 void tryread(DataBase* db, string key) {

@@ -25,7 +25,7 @@ int main()
     const string dumpfilename = ".seccampDB_dump";
     const string logfilename = ".seccampDB_log";
 
-    DataBase* db = new DataBase(dumpfilename, logfilename);
+    unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
     db->begin();
     db->insert("key1", 35);
     assert(db->read("key1").value() == 35);
@@ -34,7 +34,7 @@ int main()
     db->commit();
     assert(db->read("key1").has_value() == false);
     db->insert("key2", 40);
-    delete db;
+    db.reset();
 
     return 0;
 }

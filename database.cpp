@@ -119,42 +119,42 @@ void DataBase::abort() {
 
 // --------------------------- DataBase operations -----------------------------
 
-int DataBase::insert(Key key, int val) {
+bool DataBase::insert(Key key, int val) {
     if (transaction_mode_) {
         if (has_key(key)) {
             cerr << "The key " << key << " already exists" << endl;
-            return 1;
+            return true;
         }
         write_set_[key] = make_pair(New, val);
-        return 0;
+        return false;
     }
 
     if (table_.count(key) > 0) {
         cerr << "The key " << key << " already exists" << endl;
-        return 1;
+        return true;
     }
     log_non_transaction(New, key, val);
     table_[key] = val;
-    return 0;
+    return false;
 }
 
-int DataBase::update(Key key, int val) {
+bool DataBase::update(Key key, int val) {
     if (transaction_mode_) {
         if (!has_key(key)) {
             cerr << "The key " << key << " doesn't exist" << endl;
-            return 1;
+            return true;
         }
         write_set_[key] = make_pair(New, val);
-        return 0;
+        return false;
     }
 
     if (table_.count(key) <= 0) {
         cerr << "The key " << key << " doesn't exist" << endl;
-        return 1;
+        return true;
     }
     log_non_transaction(New, key, val);
     table_[key] = val;
-    return 0;
+    return false;
 }
 
 optional<int> DataBase::read(Key key) {
@@ -180,23 +180,23 @@ optional<int> DataBase::read(Key key) {
     return table_[key];
 }
 
-int DataBase::del(Key key) {
+bool DataBase::del(Key key) {
     if (transaction_mode_) {
         if (!has_key(key)) {
             cerr << "The key " << key << " doesn't exist" << endl;
-            return 1;
+            return true;
         }
         write_set_[key] = make_pair(Delete, 0);
-        return 0;
+        return false;
     }
 
     if (table_.count(key) <= 0) {
         cerr << "The key " << key << " doesn't exist" << endl;
-        return 1;
+        return true;
     }
     log_non_transaction(Delete, key, 0);
     table_.erase(key);
-    return 0;
+    return false;
 }
 
 bool DataBase::has_key(Key key) {

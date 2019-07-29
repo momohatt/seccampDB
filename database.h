@@ -20,10 +20,14 @@ class DataBase {
         void abort();
 
         // Basic operations
-        int insert(Key key, int val);
-        int update(Key key, int val);
+        //
+        // return values:
+        //     true -> Error
+        //     false -> OK
+        bool insert(Key key, int val);
+        bool update(Key key, int val);
         optional<int> read(Key key);
-        int del(Key key);
+        bool del(Key key);
 
     private:
         enum ChangeMode {

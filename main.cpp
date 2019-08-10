@@ -3,6 +3,8 @@
 #include <optional>
 #include <string>
 #include <unistd.h>
+#include <cassert>
+#include <memory>
 #include "database.h"
 
 using namespace std;

@@ -10,7 +10,7 @@ database.o: database.cpp
 utils.o: utils.cpp
 	$(CC) $(CFLAGS) -c $^ -o $@
 
-test: database.o test.cpp
+test: utils.o database.o test.cpp
 	$(CC) $(CFLAGS) $^ -o $@
 	./test 2> /dev/null
 

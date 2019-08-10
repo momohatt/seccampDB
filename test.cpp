@@ -1,5 +1,8 @@
 #include <iostream>
 #include <fstream>
+#include <cassert>
+#include <memory>
+#include "utils.h"
 #include "database.h"
 using namespace std;
 

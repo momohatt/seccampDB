@@ -2,6 +2,8 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <cassert>
+#include <memory>
 #include "database.h"
 
 using namespace std;

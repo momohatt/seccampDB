@@ -1,10 +1,13 @@
 CC = g++
 CFLAGS = -Wall -O2 -std=c++17
 
-main: database.o main.cpp
+main: utils.o database.o main.cpp
 	$(CC) $(CFLAGS) $^ -o $@
 
 database.o: database.cpp
+	$(CC) $(CFLAGS) -c $^ -o $@
+
+utils.o: utils.cpp
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 test: database.o test.cpp

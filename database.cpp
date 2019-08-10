@@ -1,6 +1,8 @@
 #include "database.h"
+#include "utils.h"
 
 #include <iostream>
+#include <cstdlib>
 using namespace std;
 
 /*
@@ -24,10 +26,7 @@ using namespace std;
     * メモリ上のDBをディスクに書き出して log を空にする
 
   Crash Recovery:
-  * log を先頭からなめて，トランザクション毎にあった/なかったのどちらにするか決定
-  * トランザクションがあったことにする条件:
-    * トランザクションの commit log が記録されている
-    * トランザクションが依存していた全てのトランザクションが commit 扱いとなっている
+  * logを先頭から見て、トランザクションを全て反映させる
 
  */
 
@@ -43,9 +42,9 @@ DataBase::DataBase(string dumpfilename, string logfilename)
     string str;
 
     while (getline(ifs_dump, str)) {
-        size_t pos = str.find(" ");
-        assert(pos > 0);
-        table_[str.substr(0, pos)] = stoi(str.substr(pos + 1, str.size() - pos));
+        vector<string> fields = words(str);
+        assert(fields.size() == 2);
+        table_[fields[0]] = stoi(fields[1]);
     }
 
     ifs_dump.close();
@@ -72,10 +71,29 @@ DataBase::~DataBase() {
 void DataBase::recover() {
     ifstream ifs_log(logfilename_);
     string str;
-    bool in_transaction;
+    bool in_transaction = false;
 
     while (getline(ifs_log, str)) {
-        // TODO
+        if (str == "{") {
+            assert(in_transaction == false && "nested transaction log is not allowed");
+            in_transaction = true;
+            continue;
+        }
+        if (str == "}") {
+            assert(in_transaction == true && "nested transaction log is not allowed");
+            in_transaction = false;
+            continue;
+        }
+
+        vector<string> fields = words(str);
+        assert(fields.size() == 3);
+        if (stoi(fields[1]) == 0) {
+            // New
+            table_[fields[0]] = stoi(fields[2]);
+        } else {
+            // Delete
+            table_.erase(fields[0]);
+        }
     }
 
     ifs_log.close();
@@ -90,11 +108,11 @@ void DataBase::begin() {
 
 void DataBase::commit() {
     // flush write_set_ to log file
+    ofs_log_ << "{" << endl;
     for (const auto& [key, value] : write_set_) {
-        ofs_log_ << "{" << endl;
         ofs_log_ << key << " " << value.first << " " << value.second << endl;
-        ofs_log_ << "}" << endl;
     }
+    ofs_log_ << "}" << endl;
 
     // single threadなのでcommit処理が失敗することはない
     // -> すぐにDB本体に書き出して良い

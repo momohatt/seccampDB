@@ -53,6 +53,10 @@ class DataBase {
         string dumpfilename_;
         string logfilename_;
         ofstream ofs_log_;
+
+        // format of output files:
+        // DB file:  [key] [value]
+        // log file: [key] [0/1] [value]
 };
 
 #endif  // __DATABASE_H__

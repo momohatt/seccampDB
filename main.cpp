@@ -37,7 +37,7 @@ int main()
     db->commit();
     assert(db->read("key1").has_value() == false);
     db->insert("key2", 40);
-    // sleep(30);
+    sleep(30);
     assert(db->read("key2").value() == 40);
     db.reset();
 

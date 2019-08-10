@@ -37,6 +37,8 @@ DataBase::DataBase(string dumpfilename, string logfilename)
     logfilename_(logfilename),
     ofs_log_(logfilename, ios_base::app)
 {
+    cout << "Booting DB..." << endl;
+
     // 前回のDBファイルをメモリに読み出し
     ifstream ifs_dump(dumpfilename);
     string str;
@@ -51,9 +53,13 @@ DataBase::DataBase(string dumpfilename, string logfilename)
 
     // (必要なら) crash recovery
     recover();
+
+    cout << "DB is successfully booted" << endl;
 }
 
 DataBase::~DataBase() {
+    cout << "Attempting a shut down of DB..." << endl;
+
     // checkpointing
     ofstream ofs_dump(dumpfilename_);  // dump file will be truncated
     for (const auto& [key, value] : table_) {
@@ -66,6 +72,8 @@ DataBase::~DataBase() {
     // clear log file
     ofs_log_.open(logfilename_, ios_base::trunc);
     ofs_log_.close();
+
+    cout << "Successfully shut down DB." << endl;
 }
 
 void DataBase::recover() {
@@ -97,6 +105,9 @@ void DataBase::recover() {
     }
 
     ifs_log.close();
+
+    ofs_log_.open(logfilename_, ios_base::trunc);
+    ofs_log_.close();
 }
 
 // ---------------------------- Transaction Logic ------------------------------
@@ -112,7 +123,7 @@ void DataBase::commit() {
     for (const auto& [key, value] : write_set_) {
         ofs_log_ << key << " " << value.first << " " << value.second << endl;
     }
-    ofs_log_ << "}" << endl;
+    ofs_log_ << "}" << flush;
 
     // single threadなのでcommit処理が失敗することはない
     // -> すぐにDB本体に書き出して良い
@@ -225,7 +236,5 @@ bool DataBase::has_key(Key key) {
 }
 
 void DataBase::log_non_transaction(ChangeMode mode, Key key, int val) {
-    ofs_log_ << "{" << endl;
-    ofs_log_ << key << " " << mode << " " << val << endl;
-    ofs_log_ << "}" << endl;
+    ofs_log_ << "{\n" << key << " " << mode << " " << val << "\n}" << flush;
 }

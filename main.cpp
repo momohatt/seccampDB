@@ -58,6 +58,14 @@ int main()
             case Query::Abort:
                 db->abort();
                 break;
+            case Query::Keys:
+                {
+                    vector<string> keys = db->keys();
+                    for (const auto& key : keys) {
+                        cout << key << endl;
+                    }
+                }
+                break;
         }
     }
 

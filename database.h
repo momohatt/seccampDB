@@ -5,6 +5,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 using namespace std;
 
 class DataBase {
@@ -28,6 +29,7 @@ class DataBase {
         bool update(Key key, int val);
         optional<int> read(Key key);
         bool del(Key key);
+        vector<string> keys();
 
     private:
         enum ChangeMode {

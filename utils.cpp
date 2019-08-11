@@ -71,6 +71,9 @@ Query parse_query(string input) {
     } else if (fields[0] == "abort") {
         assert(fields.size() == 2);
         q.cmd = Query::Abort;
+    } else if (fields[0] == "keys") {
+        assert(fields.size() == 1);
+        q.cmd = Query::Keys;
     } else {
         cerr << "unsupported query: " << input << endl;
     }

@@ -20,7 +20,8 @@ class Query {
             Delete,
             Begin,
             Commit,
-            Abort
+            Abort,
+            Keys
         };
         Commands cmd;
         string arg1 = "";

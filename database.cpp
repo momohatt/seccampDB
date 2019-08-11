@@ -235,6 +235,18 @@ bool DataBase::del(Key key) {
     return false;
 }
 
+vector<string> DataBase::keys() {
+    vector<string> v;
+    if (transaction_mode_) {
+        assert(false);
+    }
+
+    for (const auto& [key, value] : table_) {
+        v.push_back(key);
+    }
+    return v;
+}
+
 bool DataBase::has_key(Key key) {
     if (write_set_.count(key) <= 0) {
         return table_.count(key) > 0;

@@ -83,12 +83,10 @@ void test_recover() {
         db->update("key2", x);
         db->del("key1");
         db->commit();
-        sleep(10);  // この間に死ぬ
+        exit(0);
     } else {
         // parent process (pid : pid of child proc)
         sleep(1);
-        kill(pid, SIGKILL);
-        cout << "killed child process" << endl;
         cat(logfilename);
         unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
         assert(db->read("key1").has_value() == false);

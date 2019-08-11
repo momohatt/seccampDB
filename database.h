@@ -25,15 +25,14 @@ class DataBase {
         // return values:
         //     true -> Error
         //     false -> OK
-        bool insert(Key key, int val);
-        bool update(Key key, int val);
-        optional<int> read(Key key);
+        bool set(Key key, int val);
+        optional<int> get(Key key);
         bool del(Key key);
         vector<string> keys();
 
     private:
         enum ChangeMode {
-            New,    // insert or update
+            New,    // set
             Delete  // delete
         };
 

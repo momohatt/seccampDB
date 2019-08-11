@@ -14,10 +14,9 @@ void cat(string filename);
 class Query {
     public:
         enum Commands {
-            Insert,
-            Update,
-            Read,
-            Delete,
+            Set,
+            Get,
+            Del,
             Begin,
             Commit,
             Abort,

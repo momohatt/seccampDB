@@ -24,44 +24,44 @@ void init() {
 
 void test_basics() {
     unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
-    db->insert("key1", 1);
-    assert(db->read("key1").value() == 1);
-    db->update("key1", 2);
-    assert(db->read("key1").value() == 2);
+    db->set("key1", 1);
+    assert(db->get("key1").value() == 1);
+    db->set("key1", 2);
+    assert(db->get("key1").value() == 2);
     db->del("key1");
-    assert(db->read("key1").has_value() == false);
+    assert(db->get("key1").has_value() == false);
     db.reset();
 }
 
 void test_persistence() {
     unique_ptr<DataBase> db1(new DataBase(dumpfilename, logfilename));
-    db1->insert("key1", 5);
+    db1->set("key1", 5);
     db1.reset();
 
     unique_ptr<DataBase> db2(new DataBase(dumpfilename, logfilename));
-    assert(db2->read("key1").value() == 5);
+    assert(db2->get("key1").value() == 5);
     db2.reset();
 }
 
 void test_commit() {
     unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
     db->begin();
-    db->insert("key1", 35);
-    assert(db->read("key1").value() == 35);
+    db->set("key1", 35);
+    assert(db->get("key1").value() == 35);
     db->del("key1");
-    assert(db->read("key1").has_value() == false);
+    assert(db->get("key1").has_value() == false);
     db->commit();
-    assert(db->read("key1").has_value() == false);
+    assert(db->get("key1").has_value() == false);
     db.reset();
 }
 
 void test_abort() {
     unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
     db->begin();
-    db->insert("key1", 23);
-    assert(db->read("key1").value() == 23);
+    db->set("key1", 23);
+    assert(db->get("key1").value() == 23);
     db->abort();
-    assert(db->read("key1").has_value() == false);
+    assert(db->get("key1").has_value() == false);
     db.reset();
 }
 
@@ -76,11 +76,11 @@ void test_recover() {
     if (pid == 0) {
         // child process
         unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
-        db->insert("key1", 35);
-        db->insert("key2", 40);
+        db->set("key1", 35);
+        db->set("key2", 40);
         db->begin();
-        int x = db->read("key1").value();
-        db->update("key2", x);
+        int x = db->get("key1").value();
+        db->set("key2", x);
         db->del("key1");
         db->commit();
         exit(0);
@@ -89,8 +89,8 @@ void test_recover() {
         sleep(1);
         cat(logfilename);
         unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
-        assert(db->read("key1").has_value() == false);
-        assert(db->read("key2").value() == 35);
+        assert(db->get("key1").has_value() == false);
+        assert(db->get("key2").value() == 35);
         db.reset();
     }
 }

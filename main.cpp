@@ -31,22 +31,19 @@ int main()
         Query query = parse_query(input);
 
         switch (query.cmd) {
-            case Query::Insert:
-                db->insert(query.arg1, query.arg2);
+            case Query::Set:
+                db->set(query.arg1, query.arg2);
                 break;
-            case Query::Update:
-                db->update(query.arg1, query.arg2);
-                break;
-            case Query::Read:
+            case Query::Get:
                 {
-                    optional<int> x = db->read(query.arg1);
+                    optional<int> x = db->get(query.arg1);
                     if (x.has_value())
                         cout << x.value() << endl;
                     else
                         cout << "(nil)" << endl;
                 }
                 break;
-            case Query::Delete:
+            case Query::Del:
                 db->del(query.arg1);
                 break;
             case Query::Begin:

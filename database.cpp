@@ -155,45 +155,18 @@ void DataBase::abort() {
 
 // --------------------------- DataBase operations -----------------------------
 
-bool DataBase::insert(Key key, int val) {
+bool DataBase::set(Key key, int val) {
     if (transaction_mode_) {
-        if (has_key(key)) {
-            cerr << "The key " << key << " already exists" << endl;
-            return true;
-        }
         write_set_[key] = make_pair(New, val);
         return false;
     }
 
-    if (table_.count(key) > 0) {
-        cerr << "The key " << key << " already exists" << endl;
-        return true;
-    }
     log_non_transaction(New, key, val);
     table_[key] = val;
     return false;
 }
 
-bool DataBase::update(Key key, int val) {
-    if (transaction_mode_) {
-        if (!has_key(key)) {
-            cerr << "The key " << key << " doesn't exist" << endl;
-            return true;
-        }
-        write_set_[key] = make_pair(New, val);
-        return false;
-    }
-
-    if (table_.count(key) <= 0) {
-        cerr << "The key " << key << " doesn't exist" << endl;
-        return true;
-    }
-    log_non_transaction(New, key, val);
-    table_[key] = val;
-    return false;
-}
-
-optional<int> DataBase::read(Key key) {
+optional<int> DataBase::get(Key key) {
     if (transaction_mode_) {
         if (!has_key(key)) {
             cerr << "The key " << key << " doesn't exist" << endl;

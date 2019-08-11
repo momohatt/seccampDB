@@ -44,23 +44,18 @@ Query parse_query(string input) {
     Query q = Query();
     vector<string> fields = words(input);
 
-    if (fields[0] == "insert") {
+    if (fields[0] == "set") {
         assert(fields.size() == 3);
-        q.cmd = Query::Insert;
+        q.cmd = Query::Set;
         q.arg1 = fields[1];
         q.arg2 = stoi(fields[2]);
-    } else if (fields[0] == "update") {
-        assert(fields.size() == 3);
-        q.cmd = Query::Update;
-        q.arg1 = fields[1];
-        q.arg2 = stoi(fields[2]);
-    } else if (fields[0] == "read") {
+    } else if (fields[0] == "get") {
         assert(fields.size() == 2);
-        q.cmd = Query::Read;
+        q.cmd = Query::Get;
         q.arg1 = fields[1];
-    } else if (fields[0] == "delete") {
+    } else if (fields[0] == "del") {
         assert(fields.size() == 2);
-        q.cmd = Query::Delete;
+        q.cmd = Query::Del;
         q.arg1 = fields[1];
     } else if (fields[0] == "begin") {
         assert(fields.size() == 1);

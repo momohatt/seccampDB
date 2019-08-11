@@ -99,9 +99,6 @@ void DataBase::recover() {
             in_transaction = false;
             continue;
         }
-        if (str == "") {
-            break;
-        }
 
         vector<string> fields = words(str);
         assert(fields.size() == 3);

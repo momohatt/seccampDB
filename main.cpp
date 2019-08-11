@@ -10,31 +10,57 @@
 
 using namespace std;
 
-void tryread(DataBase* db, string key) {
-    optional<int> tmp = db->read(key);
-    if (tmp)
-        cout << tmp.value() << endl;
-}
-
 int main()
 {
     const string dumpfilename = ".seccampDB_dump";
     const string logfilename = ".seccampDB_log";
 
     unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
+    string input;
 
-    db->begin();
-    db->insert("key1", 35);
-    assert(db->read("key1").value() == 35);
-    db->del("key1");
-    assert(db->read("key1").has_value() == false);
-    db->commit();
+    while (1) {
+        cout << "seccampDB> " << flush;
+        getline(cin, input);
+        if (cin.eof()) {
+            cout << endl << flush;
+            break;
+        }
+        if (input == "") {
+            continue;
+        }
+        Query query = parse_query(input);
 
-    assert(db->read("key1").has_value() == false);
-    sleep(30);
-    db->insert("key2", 40);
-    assert(db->read("key2").value() == 40);
+        switch (query.cmd) {
+            case Query::Insert:
+                db->insert(query.arg1, query.arg2);
+                break;
+            case Query::Update:
+                db->update(query.arg1, query.arg2);
+                break;
+            case Query::Read:
+                {
+                    optional<int> x = db->read(query.arg1);
+                    if (x.has_value())
+                        cout << x.value() << endl;
+                    else
+                        cout << "(nil)" << endl;
+                }
+                break;
+            case Query::Delete:
+                db->del(query.arg1);
+                break;
+            case Query::Begin:
+                db->begin();
+                break;
+            case Query::Commit:
+                db->commit();
+                break;
+            case Query::Abort:
+                db->abort();
+                break;
+        }
+    }
+
     db.reset();
-
     return 0;
 }

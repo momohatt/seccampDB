@@ -97,6 +97,9 @@ void test_recover() {
     }
 }
 
+void test_utils_parse_query() {
+}
+
 int main()
 {
     TEST(test_basics);

@@ -6,6 +6,8 @@
 #include <cassert>
 using namespace std;
 
+#define LOG(x) cout << "[LOG] " << x << endl
+
 /*
 
   Transaction logic:
@@ -35,10 +37,9 @@ using namespace std;
 
 DataBase::DataBase(string dumpfilename, string logfilename)
   : dumpfilename_(dumpfilename),
-    logfilename_(logfilename),
-    ofs_log_(logfilename, ios_base::app)
+    logfilename_(logfilename)
 {
-    cout << "Booting DB..." << endl;
+    LOG("Booting DB...");
 
     // 前回のDBファイルをメモリに読み出し
     ifstream ifs_dump(dumpfilename);
@@ -55,11 +56,13 @@ DataBase::DataBase(string dumpfilename, string logfilename)
     // (必要なら) crash recovery
     recover();
 
-    cout << "DB is successfully booted" << endl;
+    ofs_log_.open(logfilename, ios_base::trunc);
+
+    LOG("Succesfully booted DB");
 }
 
 DataBase::~DataBase() {
-    cout << "Attempting a shut down of DB..." << endl;
+    LOG("Attempting a shut down of DB...");
 
     // checkpointing
     ofstream ofs_dump(dumpfilename_);  // dump file will be truncated
@@ -74,7 +77,7 @@ DataBase::~DataBase() {
     ofs_log_.open(logfilename_, ios_base::trunc);
     ofs_log_.close();
 
-    cout << "Successfully shut down DB." << endl;
+    LOG("Successfully shut down DB.");
 }
 
 void DataBase::recover() {
@@ -93,6 +96,9 @@ void DataBase::recover() {
             in_transaction = false;
             continue;
         }
+        if (str == "") {
+            break;
+        }
 
         vector<string> fields = words(str);
         assert(fields.size() == 3);
@@ -103,12 +109,11 @@ void DataBase::recover() {
             // Delete
             table_.erase(fields[0]);
         }
+
+        LOG(fields[0]);
     }
 
     ifs_log.close();
-
-    ofs_log_.open(logfilename_, ios_base::trunc);
-    ofs_log_.close();
 }
 
 // ---------------------------- Transaction Logic ------------------------------
@@ -120,11 +125,12 @@ void DataBase::begin() {
 
 void DataBase::commit() {
     // flush write_set_ to log file
+    LOG("commit");
     ofs_log_ << "{" << endl;
     for (const auto& [key, value] : write_set_) {
         ofs_log_ << key << " " << value.first << " " << value.second << endl;
     }
-    ofs_log_ << "}" << flush;
+    ofs_log_ << "}" << endl << flush;
 
     // single threadなのでcommit処理が失敗することはない
     // -> すぐにDB本体に書き出して良い
@@ -237,5 +243,5 @@ bool DataBase::has_key(Key key) {
 }
 
 void DataBase::log_non_transaction(ChangeMode mode, Key key, int val) {
-    ofs_log_ << "{\n" << key << " " << mode << " " << val << "\n}" << flush;
+    ofs_log_ << "{\n" << key << " " << mode << " " << val << "\n}\n" << flush;
 }

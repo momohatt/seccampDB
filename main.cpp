@@ -29,15 +29,17 @@ int main()
     const string logfilename = ".seccampDB_log";
 
     unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
+
     db->begin();
     db->insert("key1", 35);
     assert(db->read("key1").value() == 35);
     db->del("key1");
     assert(db->read("key1").has_value() == false);
     db->commit();
+
     assert(db->read("key1").has_value() == false);
+    sleep(30);
     db->insert("key2", 40);
-    // sleep(30);
     assert(db->read("key2").value() == 40);
     db.reset();
 

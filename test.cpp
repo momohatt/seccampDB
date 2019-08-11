@@ -62,6 +62,9 @@ void test_abort() {
     db.reset();
 }
 
+void test_recover() {
+}
+
 void tryread(DataBase* db, string key) {
     optional<int> tmp = db->read(key);
     if (tmp)
@@ -74,5 +77,6 @@ int main()
     TEST(test_persistence);
     TEST(test_commit);
     TEST(test_abort);
+    TEST(test_recover);
     return 0;
 }

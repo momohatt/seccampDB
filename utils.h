@@ -20,9 +20,10 @@ class Query {
             Begin,
             Commit,
             Abort,
-            Keys
+            Keys,
+            Unknown,
         };
-        Commands cmd;
+        Commands cmd = Commands::Unknown;
         string arg1 = "";
         int arg2 = 0;
 };

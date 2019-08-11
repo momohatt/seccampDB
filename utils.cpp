@@ -70,7 +70,7 @@ Query parse_query(string input) {
         assert(fields.size() == 1);
         q.cmd = Query::Keys;
     } else {
-        cerr << "unsupported query: " << input << endl;
+        q.cmd = Query::Unknown;
     }
     return q;
 }

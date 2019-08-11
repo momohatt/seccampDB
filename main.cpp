@@ -63,6 +63,9 @@ int main()
                     }
                 }
                 break;
+            case Query::Unknown:
+                cerr << "unknown query: " << input << endl;
+                break;
         }
     }
 

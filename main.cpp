@@ -6,16 +6,9 @@
 #include <cassert>
 #include <memory>
 #include "database.h"
+#include "utils.h"
 
 using namespace std;
-
-// for debug
-void cat(string filename) {
-    ifstream ifs(filename);
-    string str;
-    while (getline(ifs, str))
-        cout << str << endl;
-}
 
 void tryread(DataBase* db, string key) {
     optional<int> tmp = db->read(key);

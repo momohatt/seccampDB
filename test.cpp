@@ -2,6 +2,9 @@
 #include <fstream>
 #include <cassert>
 #include <memory>
+#include <unistd.h>
+#include <stdio.h>
+#include <signal.h>
 #include "utils.h"
 #include "database.h"
 using namespace std;
@@ -63,12 +66,35 @@ void test_abort() {
 }
 
 void test_recover() {
-}
+    pid_t pid;
+    pid = fork();
+    if (pid == -1) {
+        perror("cannot fork");
+        return;
+    }
 
-void tryread(DataBase* db, string key) {
-    optional<int> tmp = db->read(key);
-    if (tmp)
-        cout << tmp.value() << endl;
+    if (pid == 0) {
+        // child process
+        unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
+        db->insert("key1", 35);
+        db->insert("key2", 40);
+        db->begin();
+        int x = db->read("key1").value();
+        db->update("key2", x);
+        db->del("key1");
+        db->commit();
+        sleep(10);  // この間に死ぬ
+    } else {
+        // parent process (pid : pid of child proc)
+        sleep(1);
+        kill(pid, SIGKILL);
+        cout << "killed child process" << endl;
+        cat(logfilename);
+        unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
+        assert(db->read("key1").has_value() == false);
+        assert(db->read("key2").value() == 35);
+        db.reset();
+    }
 }
 
 int main()
@@ -78,5 +104,6 @@ int main()
     TEST(test_commit);
     TEST(test_abort);
     TEST(test_recover);
+    init();
     return 0;
 }

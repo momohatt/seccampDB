@@ -1,7 +1,7 @@
 #include "utils.h"
 
 #include <iostream>
-#include <sstream>
+#include <fstream>
 using namespace std;
 
 vector<string> words(const string &str) {
@@ -30,4 +30,12 @@ vector<string> words(const string &str) {
     }
 
     return v;
+}
+
+// for debug
+void cat(string filename) {
+    ifstream ifs(filename);
+    string str;
+    while (getline(ifs, str))
+        cout << str << endl;
 }

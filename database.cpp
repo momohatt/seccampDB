@@ -86,7 +86,10 @@ void DataBase::recover() {
     bool in_transaction = false;
 
     while (getline(ifs_log, str)) {
-        if (str == "{") {
+        if (str == "")
+            continue;
+
+       if (str == "{") {
             assert(in_transaction == false && "nested transaction log is not allowed");
             in_transaction = true;
             continue;

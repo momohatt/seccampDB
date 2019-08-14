@@ -4,70 +4,35 @@
 #include <unistd.h>
 #include <cassert>
 #include <memory>
+#include <thread>
 #include "database.h"
 #include "utils.h"
 
 using namespace std;
 
+const string dumpfilename = ".seccampDB_dump";
+const string logfilename = ".seccampDB_log";
+Scheduler scheduler = Scheduler();
+DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
+
+void transaction1(Transaction* tx) {
+    tx->set("key1", 1);  // この中でyieldしたりする
+    tx->set("key2", 1);
+    tx->commit();
+}
+
 int main()
 {
-    const string dumpfilename = ".seccampDB_dump";
-    const string logfilename = ".seccampDB_log";
-
-    unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
     string input;
 
-    while (1) {
-        cout << "seccampDB> " << flush;
-        getline(cin, input);
-        if (cin.eof()) {
-            cout << endl << flush;
-            break;
-        }
-        if (input == "") {
-            continue;
-        }
-        Query query = parse_query(input);
+    // トランザクションオブジェクトを生成
+    // スケジューラに登録
+    Transaction* tx = db.generate_tx();
 
-        switch (query.cmd) {
-            case Query::Set:
-                db->set(query.arg1, query.arg2);
-                break;
-            case Query::Get:
-                {
-                    optional<int> x = db->get(query.arg1);
-                    if (x.has_value())
-                        cout << x.value() << endl;
-                    else
-                        cout << "(nil)" << endl;
-                }
-                break;
-            case Query::Del:
-                db->del(query.arg1);
-                break;
-            case Query::Begin:
-                db->begin();
-                break;
-            case Query::Commit:
-                db->commit();
-                break;
-            case Query::Abort:
-                db->abort();
-                break;
-            case Query::Keys:
-                {
-                    vector<string> keys = db->keys();
-                    for (const auto& key : keys) {
-                        cout << key << endl;
-                    }
-                }
-                break;
-            case Query::Unknown:
-                cerr << "unknown query: " << input << endl;
-                break;
-        }
-    }
+    // トランザクションスレッドを生成
+    thread th_tx(transaction1, tx);
+    scheduler.add_tx(move(th_tx), tx);
 
-    db.reset();
+    scheduler.run();
     return 0;
 }

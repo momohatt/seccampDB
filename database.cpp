@@ -12,7 +12,7 @@
 #include <stdio.h>
 using namespace std;
 
-#define LOG(x) cout << "[LOG](tid: " << this_thread::get_id() << ") " << x << endl
+#define LOG cout << "[LOG](tid: " << this_thread::get_id() << ") " << __FUNCTION__ << "::" << __LINE__ << endl
 
 // -------------------------------- Transaction --------------------------------
 
@@ -133,7 +133,7 @@ DataBase::DataBase(Scheduler* scheduler, string dumpfilename, string logfilename
     dumpfilename_(dumpfilename),
     logfilename_(logfilename)
 {
-    LOG("Booting DB...");
+    LOG;
     scheduler_->set_db(this);
 
     // 前回のDBファイルをメモリに読み出し
@@ -154,11 +154,11 @@ DataBase::DataBase(Scheduler* scheduler, string dumpfilename, string logfilename
 
     fd_log_ = open(logfilename.c_str(), O_WRONLY | O_TRUNC);
 
-    LOG("Succesfully booted DB");
+    LOG;
 }
 
 DataBase::~DataBase() {
-    LOG("Attempting a shut down of DB...");
+    LOG;
 
     // checkpointing
     ofstream ofs_dump(dumpfilename_);  // dump file will be truncated
@@ -173,11 +173,11 @@ DataBase::~DataBase() {
     fd_log_ = open(logfilename_.c_str(), O_TRUNC);
     close(fd_log_);
 
-    LOG("Successfully shut down DB.");
+    LOG;
 }
 
 void DataBase::recover() {
-    LOG("recover");
+    LOG;
     ifstream ifs_log(logfilename_);
     string str;
     bool in_transaction = false;
@@ -222,7 +222,7 @@ Transaction* DataBase::generate_tx(Transaction::Logic logic) {
 }
 
 void DataBase::apply_tx(Transaction* tx) {
-    LOG("commit");
+    LOG;
 
     string buf = "{\n";
     for (const auto& [key, value] : tx->write_set) {

@@ -56,6 +56,7 @@ class Transaction {
 
 class Scheduler {
     public:
+        // TODO: これをunique_ptrにすることは可能か？
         vector<Transaction*> transactions;
 
         void add_tx(Transaction::Logic logic);

@@ -55,7 +55,7 @@ bool Transaction::has_key(Key key) {
     if (write_set.count(key) <= 0) {
         return db_->table.count(key) > 0;
     }
-    return (write_set[key].first == Transaction::New);
+    return (write_set[key].first == New);
 }
 
 // ---------------------------------- DataBase ---------------------------------
@@ -173,31 +173,41 @@ Transaction* DataBase::generate_tx() {
 
 void Transaction::commit() {
     is_done = true;
+    unique_lock<mutex> lock(mtx_);
     scheduler_->turn = true;
     cond_.notify_all();
+    db_->commit(this);
 }
 
-// void DataBase::commit() {
-//     LOG("commit");
-//
-//     string buf = "{\n";
-//     for (const auto& [key, value] : tx->write_set) {
-//         buf += make_log_format(value.first, key, value.second);
-//     }
-//     buf += "}\n";
-//     write(fd_log_, buf.c_str(), buf.size());
-//     fsync(fd_log_);
-//
-//     // single threadなのでcommit処理が失敗することはない
-//     // -> すぐにメモリ上のDBに書き出して良い
-//
-//     // apply write_set to table
-//     for (const auto& [key, value] : tx->write_set) {
-//         if (value.first == Transaction::New)
-//             table[key] = value.second;
-//         else
-//             table.erase(key);
-//     }
-//
-//     tx->reset();
-// }
+void DataBase::commit(Transaction* tx) {
+    LOG("commit");
+
+    string buf = "{\n";
+    for (const auto& [key, value] : tx->write_set) {
+        buf += make_log_format(value.first, key, value.second);
+    }
+    buf += "}\n";
+    write(fd_log_, buf.c_str(), buf.size());
+    fsync(fd_log_);
+
+    // single threadなのでcommit処理が失敗することはない
+    // -> すぐにメモリ上のDBに書き出して良い
+
+    // apply write_set to table
+    for (const auto& [key, value] : tx->write_set) {
+        if (value.first == New)
+            table[key] = value.second;
+        else
+            table.erase(key);
+    }
+}
+
+string DataBase::make_log_format(ChangeMode mode, Key key, int val) {
+    string seed = key + to_string(mode) + to_string(val);
+    string buf;
+    buf += to_string(crc32(seed)) + " ";
+    buf += key + " ";
+    buf += to_string(mode) + " ";
+    buf += to_string(val) + "\n";
+    return buf;
+}

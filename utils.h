@@ -30,4 +30,6 @@ class Query {
 
 Query parse_query(string input);
 
+unsigned int crc32(string str);
+
 #endif  // __UTILS_H__

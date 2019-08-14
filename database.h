@@ -57,7 +57,7 @@ class DataBase {
 
         // format of output files:
         // DB file:  [key] [value]
-        // log file: [key] [0/1] [value]
+        // log file: [checksum] [key] [0/1] [value]
 };
 
 #endif  // __DATABASE_H__

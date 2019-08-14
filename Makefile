@@ -12,7 +12,7 @@ utils.o: utils.cpp
 
 test: utils.o database.o test.cpp
 	$(CC) $(CFLAGS) $^ -o $@
-	./test 2> /dev/null
+	./test
 
 clean:
 	rm -rf main test *.o

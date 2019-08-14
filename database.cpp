@@ -101,16 +101,19 @@ void DataBase::recover() {
         }
 
         vector<string> fields = words(str);
-        assert(fields.size() == 3);
-        if (stoi(fields[1]) == 0) {
+        assert(fields.size() == 4);
+        // checksum validation
+        string str = fields[1] + fields[2] + fields[3];
+        assert(stoi(fields[0]) == crc32(str));
+        if (stoi(fields[2]) == 0) {
             // New
-            table_[fields[0]] = stoi(fields[2]);
+            table_[fields[1]] = stoi(fields[3]);
         } else {
             // Delete
-            table_.erase(fields[0]);
+            table_.erase(fields[1]);
         }
 
-        LOG(fields[0]);
+        LOG(fields[1]);
     }
 
     ifs_log.close();
@@ -128,7 +131,8 @@ void DataBase::commit() {
     LOG("commit");
     ofs_log_ << "{" << endl;
     for (const auto& [key, value] : write_set_) {
-        ofs_log_ << key << " " << value.first << " " << value.second << endl;
+        string str = key + to_string(value.first) + to_string(value.second);
+        ofs_log_ << crc32(str) << " " << key << " " << value.first << " " << value.second << endl;
     }
     ofs_log_ << "}" << endl << flush;
 
@@ -228,5 +232,6 @@ bool DataBase::has_key(Key key) {
 }
 
 void DataBase::log_non_transaction(ChangeMode mode, Key key, int val) {
-    ofs_log_ << "{\n" << key << " " << mode << " " << val << "\n}\n" << flush;
+    string str = key + to_string(mode) + to_string(val);
+    ofs_log_ << "{\n" << crc32(str) << " " << key << " " << mode << " " << val << "\n}\n" << flush;
 }

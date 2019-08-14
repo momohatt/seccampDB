@@ -20,6 +20,9 @@ void transaction1(Transaction* tx) {
     tx->set("key1", 1);  // この中でyieldしたりする
     tx->set("key2", 2);
     tx->commit();
+    vector<string> keys = tx->keys();
+    for (const auto& key : keys)
+        cout << key << endl;
 }
 
 // void transaction2(Transaction* tx) {
@@ -29,11 +32,7 @@ void transaction1(Transaction* tx) {
 
 int main()
 {
-    // トランザクションオブジェクトを生成
-    // スケジューラに登録
     Transaction* tx1 = db.generate_tx();
-
-    // トランザクションスレッドを生成
     thread th_tx1(transaction1, tx1);
     scheduler.add_tx(move(th_tx1), tx1);
 

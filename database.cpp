@@ -12,7 +12,7 @@
 #include <stdio.h>
 using namespace std;
 
-#define LOG(x) cout << "[LOG] " << x << endl
+#define LOG(x) cout << "[LOG](tid: " << this_thread::get_id() << ") " << x << endl
 
 // -------------------------------- Transaction --------------------------------
 
@@ -47,7 +47,16 @@ bool Transaction::del(Key key) {
 
 vector<string> Transaction::keys() {
     vector<string> v;
-    // TODO
+    for (const auto& [key, _] : db_->table) {
+        if (write_set.count(key) > 0 && write_set[key].first == Delete)
+            continue;
+        v.push_back(key);
+    }
+    for (const auto& [key, val] : write_set) {
+        if (db_->table.count(key) <= 0 || val.first == Delete)
+            continue;
+        v.push_back(key);
+    }
     return v;
 }
 
@@ -72,6 +81,7 @@ DataBase::DataBase(Scheduler* scheduler, string dumpfilename, string logfilename
     string str;
 
     while (getline(ifs_dump, str)) {
+        if (str == "") continue;
         vector<string> fields = words(str);
         assert(fields.size() == 2);
         table[fields[0]] = stoi(fields[1]);
@@ -164,6 +174,7 @@ void Scheduler::run() {
             threads.erase(threads.begin() + i);
         }
     }
+    turn = false;
 }
 
 Transaction* DataBase::generate_tx() {
@@ -179,6 +190,7 @@ void Transaction::commit() {
     scheduler_->turn = true;
     cond_.notify_all();
     db_->commit(this);
+    write_set = {};
 }
 
 void DataBase::commit(Transaction* tx) {

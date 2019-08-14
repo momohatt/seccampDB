@@ -36,6 +36,12 @@ void tx_basics2(Transaction* tx) {
     tx->commit();
 }
 
+void tx_abort(Transaction* tx) {
+    tx->begin();
+    tx->set("key1", 1);
+    tx->abort();
+}
+
 void test_basics() {
     Scheduler scheduler = Scheduler();
     DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
@@ -75,17 +81,19 @@ void test_persistence() {
 //     assert(db->get("key1").has_value() == false);
 //     db.reset();
 // }
-//
-// void test_abort() {
-//     unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
-//     db->begin();
-//     db->set("key1", 23);
-//     assert(db->get("key1").value() == 23);
-//     db->abort();
-//     assert(db->get("key1").has_value() == false);
-//     db.reset();
-// }
-//
+
+void test_abort() {
+    Scheduler scheduler = Scheduler();
+    DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
+
+    TransactionLogic tl = TransactionLogic(tx_abort);
+    scheduler.add_tx(move(tl));
+    scheduler.start();
+
+    // TODO: improve assertion
+    assert(db.table.count("key1") == 0);
+}
+
 // void test_recover() {
 //     pid_t pid;
 //     pid = fork();
@@ -124,7 +132,7 @@ int main()
     TEST(test_basics);
     TEST(test_persistence);
     // TEST(test_commit);
-    // TEST(test_abort);
+    TEST(test_abort);
     // TEST(test_recover);
     init();
     return 0;

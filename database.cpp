@@ -43,6 +43,15 @@ void Transaction::commit() {
     write_set = {};
 }
 
+void Transaction::abort() {
+    is_done = true;
+    unique_lock<mutex> lock(mtx_);
+    scheduler_->turn = true;
+    cond_.notify_all();
+    // Don't call db_->commit()
+    write_set = {};
+}
+
 // TODO: この中でyieldしてCPUを解放する
 bool Transaction::set(Key key, int val) {
     write_set[key] = make_pair(New, val);

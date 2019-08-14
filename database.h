@@ -36,6 +36,7 @@ class Transaction {
 
         void begin();
         void commit();
+        void abort();
 
         // Basic operations
         //

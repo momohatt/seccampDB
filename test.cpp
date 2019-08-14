@@ -124,9 +124,6 @@ void test_abort() {
 //     }
 // }
 
-void test_utils_parse_query() {
-}
-
 int main()
 {
     TEST(test_basics);

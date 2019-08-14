@@ -39,7 +39,7 @@ void Transaction::commit() {
     unique_lock<mutex> lock(mtx_);
     scheduler_->turn = true;
     cond_.notify_all();
-    db_->commit(this);
+    db_->apply_tx(this);
     write_set = {};
 }
 
@@ -48,7 +48,7 @@ void Transaction::abort() {
     unique_lock<mutex> lock(mtx_);
     scheduler_->turn = true;
     cond_.notify_all();
-    // Don't call db_->commit()
+    // Don't call apply_tx()
     write_set = {};
 }
 
@@ -227,7 +227,7 @@ Transaction* DataBase::generate_tx(TransactionLogic&& logic) {
     return tx;
 }
 
-void DataBase::commit(Transaction* tx) {
+void DataBase::apply_tx(Transaction* tx) {
     LOG("commit");
 
     string buf = "{\n";

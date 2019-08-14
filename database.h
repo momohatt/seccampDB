@@ -88,7 +88,7 @@ class DataBase {
 
         Transaction* generate_tx(TransactionLogic&& logic);
 
-        void commit(Transaction* tx);
+        void apply_tx(Transaction* tx);
 
         // TODO: allow other types (string, char, ...)
         // TODO: impl B+-tree (future work)

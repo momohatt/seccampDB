@@ -116,7 +116,7 @@ void Scheduler::start() {
     // spawn transaction threads
     for (const auto& tx : transactions) {
         thread th(tx->logic.func, tx);
-        threads.push_back(move(th));
+        tx->set_thread(move(th));
     }
     unique_lock<mutex> lock(mtx_);
     cond_.wait(lock, [this]{ return turn; });
@@ -124,9 +124,8 @@ void Scheduler::start() {
     // TODO: optimize by using queue
     for (int i = 0 ; i < transactions.size(); i++) {
         if (transactions[i]->is_done) {
-            threads[i].join();
+            transactions[i]->join();
             transactions.erase(transactions.begin() + i);
-            threads.erase(threads.begin() + i);
         }
     }
     turn = false;

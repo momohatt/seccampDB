@@ -41,24 +41,23 @@ class Transaction {
         void commit();
         void abort();
 
-        // Basic operations
-        //
-        // return values:
-        //     true -> Error
-        //     false -> OK
-        bool set(Key key, int val);
-        optional<int> get(Key key);
-        bool del(Key key);
+        bool set(Key key, int val);  // insert & update
+        optional<int> get(Key key);  // read
+        bool del(Key key);           // delete
         vector<string> keys();
+
+        void set_thread(thread&& th) { thread_ = move(th); }
+        void join() { thread_.join(); }
 
         map<Key, pair<ChangeMode, int>> write_set = {};
         bool is_done = false;
         TransactionLogic logic;
 
     private:
-        // returns if the database or the write set has the specified key
+        // returns if |db_| or |write_set| has the specified key
         bool has_key(Key key);
 
+        thread thread_;
         DataBase* db_;
         Scheduler* scheduler_;
 
@@ -66,7 +65,6 @@ class Transaction {
 
 class Scheduler {
     public:
-        vector<thread> threads;
         vector<Transaction*> transactions;
 
         void add_tx(TransactionLogic&& logic);

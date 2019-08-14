@@ -25,7 +25,7 @@ void init() {
 
 void tx_basics1(Transaction* tx) {
     tx->begin();
-    tx->set("key1", 1);  // この中でyieldしたりする
+    tx->set("key1", 1);
     tx->set("key2", 2);
     tx->commit();
 }

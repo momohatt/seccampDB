@@ -12,26 +12,34 @@ using namespace std;
 
 const string dumpfilename = ".seccampDB_dump";
 const string logfilename = ".seccampDB_log";
+
 Scheduler scheduler = Scheduler();
 DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
 
 void transaction1(Transaction* tx) {
     tx->set("key1", 1);  // この中でyieldしたりする
-    tx->set("key2", 1);
+    tx->set("key2", 2);
     tx->commit();
 }
 
+// void transaction2(Transaction* tx) {
+//     tx->set("key3", 3);
+//     tx->commit();
+// }
+
 int main()
 {
-    string input;
-
     // トランザクションオブジェクトを生成
     // スケジューラに登録
-    Transaction* tx = db.generate_tx();
+    Transaction* tx1 = db.generate_tx();
 
     // トランザクションスレッドを生成
-    thread th_tx(transaction1, tx);
-    scheduler.add_tx(move(th_tx), tx);
+    thread th_tx1(transaction1, tx1);
+    scheduler.add_tx(move(th_tx1), tx1);
+
+    // Transaction* tx2 = db.generate_tx();
+    // thread th_tx2(transaction2, tx2);
+    // scheduler.add_tx(move(th_tx2), tx2);
 
     scheduler.run();
     return 0;

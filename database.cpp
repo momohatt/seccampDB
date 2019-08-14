@@ -107,6 +107,7 @@ DataBase::~DataBase() {
 }
 
 void DataBase::recover() {
+    LOG("recover");
     ifstream ifs_log(logfilename_);
     string str;
     bool in_transaction = false;
@@ -132,7 +133,7 @@ void DataBase::recover() {
         assert(fields.size() == 4);
         // checksum validation
         string str = fields[1] + fields[2] + fields[3];
-        assert(stoi(fields[0]) == crc32(str));
+        assert(((unsigned int) stol(fields[0])) == crc32(str));
         if (stoi(fields[2]) == 0) {
             // New
             table[fields[1]] = stoi(fields[3]);
@@ -140,8 +141,6 @@ void DataBase::recover() {
             // Delete
             table.erase(fields[1]);
         }
-
-        LOG(fields[1]);
     }
 
     ifs_log.close();
@@ -159,8 +158,11 @@ void Scheduler::run() {
     unique_lock<mutex> lock(mtx_);
     cond_.wait(lock, [this]{ return turn; });
     for (int i = 0 ; i < transactions.size(); i++) {
-        if (transactions[i]->is_done)
+        if (transactions[i]->is_done) {
             threads[i].join();
+            transactions.erase(transactions.begin() + i);
+            threads.erase(threads.begin() + i);
+        }
     }
 }
 
@@ -189,9 +191,6 @@ void DataBase::commit(Transaction* tx) {
     buf += "}\n";
     write(fd_log_, buf.c_str(), buf.size());
     fsync(fd_log_);
-
-    // single threadなのでcommit処理が失敗することはない
-    // -> すぐにメモリ上のDBに書き出して良い
 
     // apply write_set to table
     for (const auto& [key, value] : tx->write_set) {

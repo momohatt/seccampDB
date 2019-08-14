@@ -143,9 +143,10 @@ void DataBase::commit() {
     }
     buf += "}\n";
     write(fd_log_, buf.c_str(), buf.size());
+    fsync(fd_log_);
 
     // single threadなのでcommit処理が失敗することはない
-    // -> すぐにDB本体に書き出して良い
+    // -> すぐにメモリ上のDBに書き出して良い
 
     // apply write_set_ to table_
     for (const auto& [key, value] : write_set_) {
@@ -243,6 +244,7 @@ void DataBase::log_non_transaction(ChangeMode mode, Key key, int val) {
     string str = key + to_string(mode) + to_string(val);
     string buf = "{\n" + make_log_format(mode, key, val) + "}\n";
     write(fd_log_, buf.c_str(), buf.size());
+    fsync(fd_log_);
 }
 
 string DataBase::make_log_format(ChangeMode mode, Key key, int val) {

@@ -8,8 +8,9 @@
 #include <vector>
 using namespace std;
 
-class DataBase;
+class Transaction;
 class Scheduler;
+class DataBase;
 
 // * 1つのthreadに1つのtxが対応
 // * schedulerは複数のtxを管理して適切にスケジュール, yieldする
@@ -20,11 +21,18 @@ enum ChangeMode {
     Delete  // delete
 };
 
+class TransactionLogic {
+    public:
+        using Func = function<void(Transaction*)>;
+        TransactionLogic(Func func);
+        Func func;
+};
+
 class Transaction {
     public:
         using Key = string;
 
-        Transaction(DataBase* db, Scheduler* scheduler);
+        Transaction(TransactionLogic&& logic, DataBase* db, Scheduler* scheduler);
 
         void begin();
         void commit();
@@ -41,6 +49,7 @@ class Transaction {
 
         map<Key, pair<ChangeMode, int>> write_set = {};
         bool is_done = false;
+        TransactionLogic logic;
 
     private:
         // returns if the database or the write set has the specified key
@@ -56,11 +65,17 @@ class Scheduler {
         vector<thread> threads;
         vector<Transaction*> transactions;
 
-        void add_tx(thread th, Transaction* tx);
+        void add_tx(TransactionLogic&& logic);
 
-        void run();
+        // start spawning threads
+        void start();
+
+        void set_db(DataBase* db) { db_ = db; }
 
         bool turn = false;
+
+    private:
+        DataBase* db_;
 };
 
 class DataBase {
@@ -70,7 +85,7 @@ class DataBase {
         DataBase(Scheduler* scheduler, string dumpfilename, string logfilename);
         ~DataBase();
 
-        Transaction* generate_tx();
+        Transaction* generate_tx(TransactionLogic&& logic);
 
         void commit(Transaction* tx);
 

@@ -24,22 +24,25 @@ void init() {
 }
 
 void tx_basics1(Transaction* tx) {
+    tx->begin();
     tx->set("key1", 1);  // この中でyieldしたりする
     tx->set("key2", 2);
     tx->commit();
 }
 
 void tx_basics2(Transaction* tx) {
+    tx->begin();
     tx->get("key1");
+    tx->commit();
 }
 
 void test_basics() {
     Scheduler scheduler = Scheduler();
     DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
-    Transaction* tx1 = db.generate_tx();
-    thread th_tx1(tx_basics1, tx1);
-    scheduler.add_tx(move(th_tx1), tx1);
-    scheduler.run();
+
+    TransactionLogic tl1 = TransactionLogic(tx_basics1);
+    scheduler.add_tx(move(tl1));
+    scheduler.start();
 
     // TODO: improve assertion
     assert(db.table["key1"] == 1);
@@ -49,10 +52,10 @@ void test_basics() {
 void test_persistence() {
     Scheduler scheduler = Scheduler();
     unique_ptr<DataBase> db1(new DataBase(&scheduler, dumpfilename, logfilename));
-    Transaction* tx1 = db1->generate_tx();
-    thread th_tx1(tx_basics1, tx1);
-    scheduler.add_tx(move(th_tx1), tx1);
-    scheduler.run();
+
+    TransactionLogic tl1 = TransactionLogic(tx_basics1);
+    scheduler.add_tx(move(tl1));
+    scheduler.start();
     db1.reset();
 
     unique_ptr<DataBase> db2(new DataBase(&scheduler, dumpfilename, logfilename));

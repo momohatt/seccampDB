@@ -14,16 +14,24 @@ using namespace std;
 
 #define LOG(x) cout << "[LOG](tid: " << this_thread::get_id() << ") " << x << endl
 
+// ---------------------------- Transaction Logic ------------------------------
+
+TransactionLogic::TransactionLogic(Func func)
+  : func(func) {}
+
 // -------------------------------- Transaction --------------------------------
 
 mutex mtx_;
 condition_variable cond_;
 
-Transaction::Transaction(DataBase* db, Scheduler* scheduler)
-  : db_(db),
+Transaction::Transaction(
+        TransactionLogic&& logic, DataBase* db, Scheduler* scheduler)
+  : logic(move(logic)),
+    db_(db),
     scheduler_(scheduler) {}
 
 void Transaction::begin() {
+    // TODO: waitする
 }
 
 void Transaction::commit() {
@@ -89,12 +97,18 @@ bool Transaction::has_key(Key key) {
 
 // --------------------------------- Scheduler ---------------------------------
 
-void Scheduler::add_tx(thread th, Transaction* tx) {
-    threads.push_back(move(th));
+void Scheduler::add_tx(TransactionLogic&& logic) {
+    // create transaction objects and store it
+    Transaction* tx = db_->generate_tx(move(logic));
     transactions.push_back(tx);
 }
 
-void Scheduler::run() {
+void Scheduler::start() {
+    // spawn transaction threads
+    for (const auto& tx : transactions) {
+        thread th(tx->logic.func, tx);
+        threads.push_back(move(th));
+    }
     unique_lock<mutex> lock(mtx_);
     cond_.wait(lock, [this]{ return turn; });
 
@@ -117,6 +131,7 @@ DataBase::DataBase(Scheduler* scheduler, string dumpfilename, string logfilename
     logfilename_(logfilename)
 {
     LOG("Booting DB...");
+    scheduler_->set_db(this);
 
     // 前回のDBファイルをメモリに読み出し
     ifstream ifs_dump(dumpfilename);
@@ -198,8 +213,8 @@ void DataBase::recover() {
     ifs_log.close();
 }
 
-Transaction* DataBase::generate_tx() {
-    Transaction* tx = new Transaction(this, scheduler_);
+Transaction* DataBase::generate_tx(TransactionLogic&& logic) {
+    Transaction* tx = new Transaction(move(logic), this, scheduler_);
     return tx;
 }
 

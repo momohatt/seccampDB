@@ -21,21 +21,12 @@ enum ChangeMode {
     Delete  // delete
 };
 
-class TransactionLogic {
-    public:
-        using Func = function<void(Transaction*)>;
-        TransactionLogic(Func func);
-        Func func;
-
-        TransactionLogic(const TransactionLogic&) = delete;  // not copyable
-        TransactionLogic(TransactionLogic&&) = default;  // movable
-};
-
 class Transaction {
     public:
         using Key = string;
+        using Logic = function<void(Transaction*)>;
 
-        Transaction(TransactionLogic&& logic, DataBase* db, Scheduler* scheduler);
+        Transaction(Logic logic, DataBase* db, Scheduler* scheduler);
 
         void begin();
         void commit();
@@ -51,7 +42,7 @@ class Transaction {
 
         map<Key, pair<ChangeMode, int>> write_set = {};
         bool is_done = false;
-        TransactionLogic logic;
+        Logic logic;
 
     private:
         // returns if |db_| or |write_set| has the specified key
@@ -67,7 +58,7 @@ class Scheduler {
     public:
         vector<Transaction*> transactions;
 
-        void add_tx(TransactionLogic&& logic);
+        void add_tx(Transaction::Logic logic);
 
         // start spawning threads
         void start();
@@ -87,7 +78,7 @@ class DataBase {
         DataBase(Scheduler* scheduler, string dumpfilename, string logfilename);
         ~DataBase();
 
-        Transaction* generate_tx(TransactionLogic&& logic);
+        Transaction* generate_tx(Transaction::Logic logic);
 
         void apply_tx(Transaction* tx);
 

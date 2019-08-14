@@ -14,18 +14,13 @@ using namespace std;
 
 #define LOG(x) cout << "[LOG](tid: " << this_thread::get_id() << ") " << x << endl
 
-// ---------------------------- Transaction Logic ------------------------------
-
-TransactionLogic::TransactionLogic(Func func)
-  : func(func) {}
-
 // -------------------------------- Transaction --------------------------------
 
 mutex mtx_;
 condition_variable cond_;
 
 Transaction::Transaction(
-        TransactionLogic&& logic, DataBase* db, Scheduler* scheduler)
+        Transaction::Logic logic, DataBase* db, Scheduler* scheduler)
   : logic(move(logic)),
     db_(db),
     scheduler_(scheduler) {}
@@ -106,7 +101,7 @@ bool Transaction::has_key(Key key) {
 
 // --------------------------------- Scheduler ---------------------------------
 
-void Scheduler::add_tx(TransactionLogic&& logic) {
+void Scheduler::add_tx(Transaction::Logic logic) {
     // create transaction objects and store it
     Transaction* tx = db_->generate_tx(move(logic));
     transactions.push_back(tx);
@@ -115,7 +110,7 @@ void Scheduler::add_tx(TransactionLogic&& logic) {
 void Scheduler::start() {
     // spawn transaction threads
     for (const auto& tx : transactions) {
-        thread th(tx->logic.func, tx);
+        thread th(tx->logic, tx);
         tx->set_thread(move(th));
     }
     unique_lock<mutex> lock(mtx_);
@@ -221,7 +216,7 @@ void DataBase::recover() {
     ifs_log.close();
 }
 
-Transaction* DataBase::generate_tx(TransactionLogic&& logic) {
+Transaction* DataBase::generate_tx(Transaction::Logic logic) {
     Transaction* tx = new Transaction(move(logic), this, scheduler_);
     return tx;
 }

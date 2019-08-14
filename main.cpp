@@ -35,11 +35,8 @@ void transaction2(Transaction* tx) {
 // transaction logic
 int main()
 {
-    TransactionLogic tl1 = TransactionLogic(transaction1);
-    scheduler.add_tx(move(tl1));
-
-    // TransactionLogic tl2 = TransactionLogic(transaction1);
-    // scheduler.add_tx(move(tl2));
+    scheduler.add_tx(move(transaction1));
+    // scheduler.add_tx(move(transaction2));
 
     scheduler.start();
     return 0;

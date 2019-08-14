@@ -46,8 +46,7 @@ void test_basics() {
     Scheduler scheduler = Scheduler();
     DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
 
-    TransactionLogic tl1 = TransactionLogic(tx_basics1);
-    scheduler.add_tx(move(tl1));
+    scheduler.add_tx(move(tx_basics1));
     scheduler.start();
 
     // TODO: improve assertion
@@ -59,8 +58,7 @@ void test_persistence() {
     Scheduler scheduler = Scheduler();
     unique_ptr<DataBase> db1(new DataBase(&scheduler, dumpfilename, logfilename));
 
-    TransactionLogic tl1 = TransactionLogic(tx_basics1);
-    scheduler.add_tx(move(tl1));
+    scheduler.add_tx(move(tx_basics1));
     scheduler.start();
     db1.reset();
 
@@ -74,8 +72,7 @@ void test_abort() {
     Scheduler scheduler = Scheduler();
     DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
 
-    TransactionLogic tl = TransactionLogic(tx_abort);
-    scheduler.add_tx(move(tl));
+    scheduler.add_tx(move(tx_abort));
     scheduler.start();
 
     // TODO: improve assertion
@@ -95,8 +92,7 @@ void test_recover() {
         Scheduler scheduler = Scheduler();
         DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
 
-        TransactionLogic tl1 = TransactionLogic(tx_basics1);
-        scheduler.add_tx(move(tl1));
+        scheduler.add_tx(move(tx_basics1));
         scheduler.start();
         exit(0);
     } else {

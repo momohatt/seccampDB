@@ -16,6 +16,26 @@ using namespace std;
 
 // -------------------------------- Transaction --------------------------------
 
+mutex mtx_;
+condition_variable cond_;
+
+Transaction::Transaction(DataBase* db, Scheduler* scheduler)
+  : db_(db),
+    scheduler_(scheduler) {}
+
+void Transaction::begin() {
+}
+
+void Transaction::commit() {
+    is_done = true;
+    unique_lock<mutex> lock(mtx_);
+    scheduler_->turn = true;
+    cond_.notify_all();
+    db_->commit(this);
+    write_set = {};
+}
+
+// TODO: この中でyieldしてCPUを解放する
 bool Transaction::set(Key key, int val) {
     write_set[key] = make_pair(New, val);
     return false;
@@ -65,6 +85,28 @@ bool Transaction::has_key(Key key) {
         return db_->table.count(key) > 0;
     }
     return (write_set[key].first == New);
+}
+
+// --------------------------------- Scheduler ---------------------------------
+
+void Scheduler::add_tx(thread th, Transaction* tx) {
+    threads.push_back(move(th));
+    transactions.push_back(tx);
+}
+
+void Scheduler::run() {
+    unique_lock<mutex> lock(mtx_);
+    cond_.wait(lock, [this]{ return turn; });
+
+    // TODO: optimize by using queue
+    for (int i = 0 ; i < transactions.size(); i++) {
+        if (transactions[i]->is_done) {
+            threads[i].join();
+            transactions.erase(transactions.begin() + i);
+            threads.erase(threads.begin() + i);
+        }
+    }
+    turn = false;
 }
 
 // ---------------------------------- DataBase ---------------------------------
@@ -156,41 +198,9 @@ void DataBase::recover() {
     ifs_log.close();
 }
 
-void Scheduler::add_tx(thread th, Transaction* tx) {
-    threads.push_back(move(th));
-    transactions.push_back(tx);
-}
-
-mutex mtx_;
-condition_variable cond_;
-
-void Scheduler::run() {
-    unique_lock<mutex> lock(mtx_);
-    cond_.wait(lock, [this]{ return turn; });
-    for (int i = 0 ; i < transactions.size(); i++) {
-        if (transactions[i]->is_done) {
-            threads[i].join();
-            transactions.erase(transactions.begin() + i);
-            threads.erase(threads.begin() + i);
-        }
-    }
-    turn = false;
-}
-
 Transaction* DataBase::generate_tx() {
-    Transaction* tx = new Transaction();
-    tx->set_db(this);
-    tx->set_scheduler(scheduler_);
+    Transaction* tx = new Transaction(this, scheduler_);
     return tx;
-}
-
-void Transaction::commit() {
-    is_done = true;
-    unique_lock<mutex> lock(mtx_);
-    scheduler_->turn = true;
-    cond_.notify_all();
-    db_->commit(this);
-    write_set = {};
 }
 
 void DataBase::commit(Transaction* tx) {

@@ -24,6 +24,9 @@ class Transaction {
     public:
         using Key = string;
 
+        Transaction(DataBase* db, Scheduler* scheduler);
+
+        void begin();
         void commit();
 
         // Basic operations
@@ -36,17 +39,14 @@ class Transaction {
         bool del(Key key);
         vector<string> keys();
 
-        void set_db(DataBase* db) { db_ = db; }
-        void set_scheduler(Scheduler* scheduler) { scheduler_ = scheduler; }
-
         map<Key, pair<ChangeMode, int>> write_set = {};
         bool is_done = false;
-
-        DataBase* db_;
 
     private:
         // returns if the database or the write set has the specified key
         bool has_key(Key key);
+
+        DataBase* db_;
         Scheduler* scheduler_;
 
 };

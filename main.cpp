@@ -35,14 +35,12 @@ void transaction2(Transaction* tx) {
 // transaction logic
 int main()
 {
-    TransactionLogic tl = TransactionLogic(transaction1);
-    scheduler.add_tx(move(tl));
+    TransactionLogic tl1 = TransactionLogic(transaction1);
+    scheduler.add_tx(move(tl1));
 
-    // Transaction* tx2 = db.generate_tx();
-    // thread th_tx2(transaction2, tx2);
-    // scheduler.add_tx(move(th_tx2), tx2);
+    // TransactionLogic tl2 = TransactionLogic(transaction1);
+    // scheduler.add_tx(move(tl2));
 
-    // scheduler.start()でつくられる
     scheduler.start();
     return 0;
 }

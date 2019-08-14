@@ -70,18 +70,6 @@ void test_persistence() {
     db2.reset();
 }
 
-// void test_commit() {
-//     unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
-//     db->begin();
-//     db->set("key1", 35);
-//     assert(db->get("key1").value() == 35);
-//     db->del("key1");
-//     assert(db->get("key1").has_value() == false);
-//     db->commit();
-//     assert(db->get("key1").has_value() == false);
-//     db.reset();
-// }
-
 void test_abort() {
     Scheduler scheduler = Scheduler();
     DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
@@ -128,7 +116,6 @@ int main()
 {
     TEST(test_basics);
     TEST(test_persistence);
-    // TEST(test_commit);
     TEST(test_abort);
     // TEST(test_recover);
     init();

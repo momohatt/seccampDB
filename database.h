@@ -26,6 +26,9 @@ class TransactionLogic {
         using Func = function<void(Transaction*)>;
         TransactionLogic(Func func);
         Func func;
+
+        TransactionLogic(const TransactionLogic&) = delete;  // not copyable
+        TransactionLogic(TransactionLogic&&) = default;  // movable
 };
 
 class Transaction {

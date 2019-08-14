@@ -2,8 +2,12 @@
 #include "utils.h"
 
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <cassert>
+#include <fcntl.h>  // open
+#include <unistd.h>  // close
+#include <stdio.h>
 using namespace std;
 
 #define LOG(x) cout << "[LOG] " << x << endl
@@ -33,6 +37,9 @@ using namespace std;
 
  */
 
+// TODO:
+// * write data size to log when supporting other data types than int
+
 // ------------------------------- Persistence ---------------------------------
 
 DataBase::DataBase(string dumpfilename, string logfilename)
@@ -56,7 +63,7 @@ DataBase::DataBase(string dumpfilename, string logfilename)
     // (必要なら) crash recovery
     recover();
 
-    ofs_log_.open(logfilename, ios_base::trunc);
+    fd_log_ = open(logfilename.c_str(), O_WRONLY | O_TRUNC);
 
     LOG("Succesfully booted DB");
 }
@@ -71,11 +78,11 @@ DataBase::~DataBase() {
     }
 
     ofs_dump.close();
-    ofs_log_.close();
+    close(fd_log_);
 
     // clear log file
-    ofs_log_.open(logfilename_, ios_base::trunc);
-    ofs_log_.close();
+    fd_log_ = open(logfilename_.c_str(), O_TRUNC);
+    close(fd_log_);
 
     LOG("Successfully shut down DB.");
 }
@@ -129,12 +136,13 @@ void DataBase::begin() {
 void DataBase::commit() {
     // flush write_set_ to log file
     LOG("commit");
-    ofs_log_ << "{" << endl;
+    string buf = "{\n";
     for (const auto& [key, value] : write_set_) {
         string str = key + to_string(value.first) + to_string(value.second);
-        ofs_log_ << crc32(str) << " " << key << " " << value.first << " " << value.second << endl;
+        buf += make_log_format(value.first, key, value.second);
     }
-    ofs_log_ << "}" << endl << flush;
+    buf += "}\n";
+    write(fd_log_, buf.c_str(), buf.size());
 
     // single threadなのでcommit処理が失敗することはない
     // -> すぐにDB本体に書き出して良い
@@ -233,5 +241,16 @@ bool DataBase::has_key(Key key) {
 
 void DataBase::log_non_transaction(ChangeMode mode, Key key, int val) {
     string str = key + to_string(mode) + to_string(val);
-    ofs_log_ << "{\n" << crc32(str) << " " << key << " " << mode << " " << val << "\n}\n" << flush;
+    string buf = "{\n" + make_log_format(mode, key, val) + "}\n";
+    write(fd_log_, buf.c_str(), buf.size());
+}
+
+string DataBase::make_log_format(ChangeMode mode, Key key, int val) {
+    string str = key + to_string(mode) + to_string(val);
+    string buf;
+    buf += to_string(crc32(str)) + " ";
+    buf += key + " ";
+    buf += to_string(mode) + " ";
+    buf += to_string(val) + "\n";
+    return buf;
 }

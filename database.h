@@ -1,7 +1,6 @@
 #ifndef __DATABASE_H__
 #define __DATABASE_H__
 
-#include <fstream>
 #include <map>
 #include <optional>
 #include <string>
@@ -45,6 +44,8 @@ class DataBase {
         // log single (non-transaction) commands to log file
         void log_non_transaction(ChangeMode mode, Key key, int val);
 
+        string make_log_format(ChangeMode mode, Key key, int val);
+
         // TODO: allow other types (string, char, ...)
         // TODO: impl B+-tree (future work)
         map<Key, int> table_ = {};
@@ -53,7 +54,7 @@ class DataBase {
         bool transaction_mode_ = false;
         string dumpfilename_;
         string logfilename_;
-        ofstream ofs_log_;
+        int fd_log_;
 
         // format of output files:
         // DB file:  [key] [value]

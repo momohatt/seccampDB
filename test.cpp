@@ -82,42 +82,41 @@ void test_abort() {
     assert(db.table.count("key1") == 0);
 }
 
-// void test_recover() {
-//     pid_t pid;
-//     pid = fork();
-//     if (pid == -1) {
-//         perror("cannot fork");
-//         return;
-//     }
-//
-//     if (pid == 0) {
-//         // child process
-//         unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
-//         db->set("key1", 35);
-//         db->set("key2", 40);
-//         db->begin();
-//         int x = db->get("key1").value();
-//         db->set("key2", x);
-//         db->del("key1");
-//         db->commit();
-//         exit(0);
-//     } else {
-//         // parent process (pid : pid of child proc)
-//         sleep(1);
-//         cat(logfilename);
-//         unique_ptr<DataBase> db(new DataBase(dumpfilename, logfilename));
-//         assert(db->get("key1").has_value() == false);
-//         assert(db->get("key2").value() == 35);
-//         db.reset();
-//     }
-// }
+void test_recover() {
+    pid_t pid;
+    pid = fork();
+    if (pid == -1) {
+        perror("cannot fork");
+        return;
+    }
+
+    if (pid == 0) {
+        // child process
+        Scheduler scheduler = Scheduler();
+        DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
+
+        TransactionLogic tl1 = TransactionLogic(tx_basics1);
+        scheduler.add_tx(move(tl1));
+        scheduler.start();
+        exit(0);
+    } else {
+        // parent process (pid : pid of child proc)
+        sleep(1);
+        cat(logfilename);
+        Scheduler scheduler = Scheduler();
+        DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
+
+        assert(db.table["key1"] == 1);
+        assert(db.table["key2"] == 2);
+    }
+}
 
 int main()
 {
     TEST(test_basics);
     TEST(test_persistence);
     TEST(test_abort);
-    // TEST(test_recover);
+    TEST(test_recover);
     init();
     return 0;
 }

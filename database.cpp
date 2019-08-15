@@ -26,24 +26,28 @@ Transaction::Transaction(
     scheduler_(scheduler) {}
 
 void Transaction::Begin() {
-    // TODO: waitする
+    unique_lock<mutex> lock(giant_mtx_);
 }
 
 void Transaction::Commit() {
+    LOG;
     unique_lock<mutex> lock(giant_mtx_);
-    is_done = true;
-    scheduler_->turn = true;
-    cond_tx_done_.notify_one();
     db_->apply_tx(this);
     write_set = {};
+    is_done = true;
+
+    scheduler_->turn = true;
+    cond_tx_done_.notify_one();
 }
 
 void Transaction::Abort() {
+    LOG;
     unique_lock<mutex> lock(giant_mtx_);
+    write_set = {};
     is_done = true;
+
     scheduler_->turn = true;
     cond_tx_done_.notify_one();
-    write_set = {};
 }
 
 // TODO: この中でyieldしてCPUを解放する
@@ -113,15 +117,25 @@ void Scheduler::add_tx(Transaction::Logic logic) {
 
 void Scheduler::Start() {
     // spawn transaction threads
-    unique_lock<mutex> lock(giant_mtx_);
-    LOG;
-    for (const auto& tx : transactions) {
-        thread th(tx->logic, tx);
-        tx->set_thread(move(th));
+    {
+        unique_lock<mutex> lock(giant_mtx_);
+        LOG;
+        for (const auto& tx : transactions) {
+            thread th(tx->logic, tx);
+            tx->set_thread(move(th));
+        }
     }
-    // TODO: ここはasyncにできないのか
-    cond_tx_done_.wait(lock, [this]{ return turn; });
-    OnTxFinish();
+    Run();
+}
+
+void Scheduler::Run() {
+    while (transactions.size() > 0) {
+        // TODO: なぜかここでcond_tx_done_ を永遠に待ってしまう
+        unique_lock<mutex> lock(giant_mtx_);
+        cond_tx_done_.wait(lock, [this]{ return turn; });
+        OnTxFinish();
+        this_thread::yield();
+    }
 }
 
 void Scheduler::OnTxFinish() {
@@ -129,7 +143,7 @@ void Scheduler::OnTxFinish() {
     // TODO: optimize by using queue
     for (int i = 0 ; i < transactions.size(); i++) {
         if (transactions[i]->is_done) {
-            transactions[i]->Join();
+            transactions[i]->Terminate();
             transactions.erase(transactions.begin() + i);
         }
     }

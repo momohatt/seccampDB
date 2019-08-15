@@ -38,7 +38,7 @@ class Transaction {
         vector<string> Keys();
 
         void set_thread(thread&& th) { thread_ = move(th); }
-        void Join() { thread_.join(); }
+        void Terminate() { thread_.join(); }
 
         map<Key, pair<ChangeMode, int>> write_set = {};
         bool is_done = false;
@@ -62,8 +62,12 @@ class Scheduler {
         void add_tx(Transaction::Logic logic);
         void set_db(DataBase* db) { db_ = db; }
 
-        // start spawning threads
+        // starts spawning threads
         void Start();
+
+        void Run();
+
+        // |OnTxFinish| gets called every time a transaction is finished
         void OnTxFinish();
 
         bool turn = false;

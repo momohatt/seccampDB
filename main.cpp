@@ -32,11 +32,18 @@ void transaction2(Transaction* tx) {
     tx->Commit();
 }
 
+void transaction3(Transaction* tx) {
+    tx->Begin();
+    tx->Set("key4", 4);
+    tx->Abort();
+}
+
 // transaction logic
 int main()
 {
     scheduler.add_tx(move(transaction1));
-    // scheduler.add_tx(move(transaction2));
+    scheduler.add_tx(move(transaction2));
+    scheduler.add_tx(move(transaction3));
 
     scheduler.Start();
     return 0;

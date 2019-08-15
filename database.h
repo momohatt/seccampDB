@@ -20,12 +20,17 @@ enum ChangeMode {
     Delete  // delete
 };
 
+enum BaseOp {
+    Read,
+    Write,
+};
+
 class Transaction {
     public:
         using Key = string;
         using Logic = function<void(Transaction*)>;
 
-        Transaction(Logic logic, DataBase* db, Scheduler* scheduler);
+        Transaction(int id, Logic logic, DataBase* db, Scheduler* scheduler);
 
         void begin();
         void commit();
@@ -62,6 +67,7 @@ class Transaction {
         bool has_key(Key key);
 
         bool turn_ = false;
+        int id_;
         unique_lock<mutex> lock_;
         condition_variable cv_;
         thread thread_;
@@ -89,17 +95,13 @@ class Scheduler {
         bool turn_ = false;
         condition_variable cv_;
         unique_lock<mutex> lock_;
+        vector<pair<int, BaseOp>> read_write_log_ = {};
         DataBase* db_;
 };
 
 class DataBase {
     public:
         using Key = string;
-
-        enum LockType {
-            Read,
-            Write,
-        };
 
         struct RecordInfo {
             int value;
@@ -116,7 +118,7 @@ class DataBase {
         ~DataBase();
 
         unique_ptr<Transaction> generate_tx(Transaction::Logic logic);
-        bool get_lock(Transaction* tx, Key key, LockType locktype);
+        bool get_lock(Transaction* tx, Key key, BaseOp locktype);
 
         void apply_tx(Transaction* tx);
 
@@ -134,6 +136,7 @@ class DataBase {
         string dumpfilename_;
         string logfilename_;
         int fd_log_;
+        int id_counter_ = 0;  // for transaction ID
 
         // format of output files:
         // DB file:  [key] [value]

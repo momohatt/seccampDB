@@ -10,42 +10,45 @@
 #include <stdio.h>
 using namespace std;
 
-#define LOG cout << "[LOG](tid: " << this_thread::get_id() << ") " \
-    << __FUNCTION__ << "::" << __LINE__ << endl
+// #define LOG cout << "[LOG](tid: " << this_thread::get_id() << ") " \
+//     << __FUNCTION__ << "::" << __LINE__ << endl
+#define LOG   printf("[LOG]          %s::%d\n", __FUNCTION__, __LINE__)
+#define TXLOG printf("[LOG](txid: %d) %s::%d\n", id_, __FUNCTION__, __LINE__)
 
 // -------------------------------- Transaction --------------------------------
 
 mutex giant_mtx_;
 
 Transaction::Transaction(
-        Transaction::Logic logic, DataBase* db, Scheduler* scheduler)
+        int id, Transaction::Logic logic, DataBase* db, Scheduler* scheduler)
   : logic(move(logic)),
+    id_(id),
     db_(db),
     scheduler_(scheduler) {}
 
 void Transaction::begin() {
-    LOG;
+    TXLOG;
     unique_lock<mutex> lock(giant_mtx_);
     lock_ = move(lock);
     wait();
 }
 
 void Transaction::commit() {
-    LOG;
+    TXLOG;
     db_->apply_tx(this);
     finish();
 }
 
 void Transaction::abort() {
-    LOG;
+    TXLOG;
     finish();
 }
 
 bool Transaction::set(Key key, int val) {
-    LOG;
+    TXLOG;
 
     if (db_->table.count(key) > 0) {
-        while (!db_->get_lock(this, key, DataBase::Write)) {
+        while (!db_->get_lock(this, key, Write)) {
             wait();
         }
     }
@@ -55,7 +58,7 @@ bool Transaction::set(Key key, int val) {
 }
 
 optional<int> Transaction::get(Key key) {
-    LOG;
+    TXLOG;
 
     if (!has_key(key)) {
         cerr << "The key " << key << " doesn't exist" << endl;
@@ -71,7 +74,7 @@ optional<int> Transaction::get(Key key) {
         return write_set[key].second;
     }
 
-    while (!db_->get_lock(this, key, DataBase::Read)) {
+    while (!db_->get_lock(this, key, Read)) {
         wait();
     }
     read_set.push_back(key);
@@ -80,13 +83,13 @@ optional<int> Transaction::get(Key key) {
 }
 
 bool Transaction::del(Key key) {
-    LOG;
+    TXLOG;
 
     if (!has_key(key)) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return true;
     }
-    while (!db_->get_lock(this, key, DataBase::Write)) {
+    while (!db_->get_lock(this, key, Write)) {
         wait();
     }
     write_set[key] = make_pair(Delete, 0);
@@ -95,7 +98,7 @@ bool Transaction::del(Key key) {
 }
 
 vector<string> Transaction::keys() {
-    LOG;
+    TXLOG;
 
     vector<string> v;
     for (const auto& [key, _] : db_->table) {
@@ -114,7 +117,7 @@ vector<string> Transaction::keys() {
 }
 
 int Transaction::get_until_success(Key key) {
-    LOG;
+    TXLOG;
     optional<int> tmp = get(key);
     while (!tmp.has_value()) {
         wait();
@@ -177,8 +180,8 @@ void Scheduler::start() {
 void Scheduler::run() {
     while (!transactions.empty()) {
         LOG;
-        for (const auto& [key, l] : db_->table)
-            cout << key << " " << l.nlock << endl;
+        // for (const auto& [key, l] : db_->table)
+        //     cout << key << " " << l.nlock << endl;
         unique_ptr<Transaction> tx = move(transactions.front());
         transactions.pop();
         wait(tx.get());
@@ -285,11 +288,12 @@ void DataBase::recover() {
 }
 
 unique_ptr<Transaction> DataBase::generate_tx(Transaction::Logic logic) {
-    unique_ptr<Transaction> tx(new Transaction(move(logic), this, scheduler_));
+    unique_ptr<Transaction> tx(
+            new Transaction(id_counter_++, move(logic), this, scheduler_));
     return tx;
 }
 
-bool DataBase::get_lock(Transaction* tx, Key key, LockType locktype) {
+bool DataBase::get_lock(Transaction* tx, Key key, BaseOp locktype) {
     assert(table.count(key) > 0);
     LOG;
 

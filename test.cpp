@@ -24,22 +24,22 @@ void init() {
 }
 
 void tx_basics1(Transaction* tx) {
-    tx->Begin();
-    tx->Set("key1", 1);
-    tx->Set("key2", 2);
-    tx->Commit();
+    tx->begin();
+    tx->set("key1", 1);
+    tx->set("key2", 2);
+    tx->commit();
 }
 
 void tx_basics2(Transaction* tx) {
-    tx->Begin();
-    tx->Get("key1");
-    tx->Commit();
+    tx->begin();
+    tx->get("key1");
+    tx->commit();
 }
 
 void tx_abort(Transaction* tx) {
-    tx->Begin();
-    tx->Set("key1", 1);
-    tx->Abort();
+    tx->begin();
+    tx->set("key1", 1);
+    tx->abort();
 }
 
 void test_basics() {
@@ -47,7 +47,7 @@ void test_basics() {
     DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
 
     scheduler.add_tx(move(tx_basics1));
-    scheduler.Start();
+    scheduler.start();
 
     // TODO: improve assertion
     assert(db.table["key1"] == 1);
@@ -59,7 +59,7 @@ void test_persistence() {
     unique_ptr<DataBase> db1(new DataBase(&scheduler, dumpfilename, logfilename));
 
     scheduler.add_tx(move(tx_basics1));
-    scheduler.Start();
+    scheduler.start();
     db1.reset();
 
     unique_ptr<DataBase> db2(new DataBase(&scheduler, dumpfilename, logfilename));
@@ -73,7 +73,7 @@ void test_abort() {
     DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
 
     scheduler.add_tx(move(tx_abort));
-    scheduler.Start();
+    scheduler.start();
 
     // TODO: improve assertion
     assert(db.table.count("key1") == 0);
@@ -93,7 +93,7 @@ void test_recover() {
         DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
 
         scheduler.add_tx(move(tx_basics1));
-        scheduler.Start();
+        scheduler.start();
         exit(0);
     } else {
         // parent process (pid : pid of child proc)

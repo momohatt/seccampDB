@@ -31,20 +31,20 @@ class Transaction {
 
         Transaction(Logic logic, DataBase* db, Scheduler* scheduler);
 
-        void Begin();
-        void Commit();
-        void Abort();
+        void begin();
+        void commit();
+        void abort();
 
-        bool Set(Key key, int val);  // insert & update
-        optional<int> Get(Key key);  // read
-        bool Del(Key key);           // delete
-        vector<string> Keys();
+        bool set(Key key, int val);  // insert & update
+        optional<int> get(Key key);  // read
+        bool del(Key key);           // delete
+        vector<string> keys();
 
         void set_thread(thread&& th) { thread_ = move(th); }
 
         // schedulerが起こすときに呼ぶ
-        void Notify() { turn = true; cv_.notify_one(); }
-        void Terminate() { thread_.join(); }
+        void notify() { turn = true; cv_.notify_one(); }
+        void terminate() { thread_.join(); }
 
         map<Key, pair<ChangeMode, int>> write_set = {};
         bool is_done = false;
@@ -53,7 +53,7 @@ class Transaction {
 
     private:
         // 処理をschedulerに渡す
-        void Wait();
+        void wait();
 
         // returns if |db_| or |write_set| has the specified key
         bool has_key(Key key);
@@ -68,27 +68,23 @@ class Transaction {
 
 class Scheduler {
     public:
-        // TODO: これをunique_ptrにする
         iterable_queue<unique_ptr<Transaction>> transactions;
 
         void add_tx(Transaction::Logic logic);
         void set_db(DataBase* db) { db_ = db; }
 
         // starts spawning threads
-        void Start();
+        void start();
 
         // Runs round-robin schedule
-        void Run();
+        void run();
 
-        // |OnTxFinish| gets called every time a transaction is finished
-        void OnTxFinish();
-
-        void Notify() { turn = true; cv_.notify_one(); }
+        void notify() { turn = true; cv_.notify_one(); }
 
         bool turn = false;
 
     private:
-        void Wait(Transaction* tx);
+        void wait(Transaction* tx);
         condition_variable cv_;
         unique_lock<mutex> lock_;
         DataBase* db_;

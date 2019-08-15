@@ -22,44 +22,43 @@ Transaction::Transaction(
     db_(db),
     scheduler_(scheduler) {}
 
-void Transaction::Begin() {
+void Transaction::begin() {
     LOG;
     unique_lock<mutex> lock(giant_mtx_);
     lock_ = move(lock);
-    Wait();
+    wait();
 }
 
-void Transaction::Commit() {
+void Transaction::commit() {
     LOG;
 
     db_->apply_tx(this);
     write_set = {};
     is_done = true;
 
-    scheduler_->Notify();
+    scheduler_->notify();
     lock_.unlock();
 }
 
-void Transaction::Abort() {
+void Transaction::abort() {
     LOG;
 
     write_set = {};
     is_done = true;
 
-    scheduler_->Notify();
+    scheduler_->notify();
     lock_.unlock();
 }
 
-// TODO: この中でyieldしてCPUを解放する
-bool Transaction::Set(Key key, int val) {
+bool Transaction::set(Key key, int val) {
     LOG;
 
     write_set[key] = make_pair(New, val);
-    Wait();
+    wait();
     return false;
 }
 
-optional<int> Transaction::Get(Key key) {
+optional<int> Transaction::get(Key key) {
     LOG;
 
     if (!has_key(key)) {
@@ -73,11 +72,11 @@ optional<int> Transaction::Get(Key key) {
         return write_set[key].second;
     }
 
-    Wait();
+    wait();
     return db_->table[key];
 }
 
-bool Transaction::Del(Key key) {
+bool Transaction::del(Key key) {
     LOG;
 
     if (!has_key(key)) {
@@ -85,11 +84,11 @@ bool Transaction::Del(Key key) {
         return true;
     }
     write_set[key] = make_pair(Delete, 0);
-    Wait();
+    wait();
     return false;
 }
 
-vector<string> Transaction::Keys() {
+vector<string> Transaction::keys() {
     LOG;
 
     vector<string> v;
@@ -103,12 +102,12 @@ vector<string> Transaction::Keys() {
             continue;
         v.push_back(key);
     }
-    Wait();
+    wait();
     return v;
 }
 
-void Transaction::Wait() {
-    scheduler_->Notify();
+void Transaction::wait() {
+    scheduler_->notify();
     turn = false;
     cv_.wait(lock_, [this]{ return turn; });
 }
@@ -129,7 +128,7 @@ void Scheduler::add_tx(Transaction::Logic logic) {
     transactions.push(move(tx));
 }
 
-void Scheduler::Start() {
+void Scheduler::start() {
     // spawn transaction threads
     unique_lock<mutex> lock(giant_mtx_);
     lock_ = move(lock);
@@ -138,19 +137,19 @@ void Scheduler::Start() {
         thread th(tx->logic, tx.get());
         tx->set_thread(move(th));
     }
-    Run();
+    run();
 }
 
-void Scheduler::Run() {
+void Scheduler::run() {
     while (!transactions.empty()) {
         LOG;
         unique_ptr<Transaction> tx = move(transactions.front());
         transactions.pop();
-        Wait(tx.get());
+        wait(tx.get());
 
         tx->turn = false;
         if (tx->is_done) {
-            tx->Terminate();
+            tx->terminate();
             tx.reset();
             continue;
         }
@@ -159,8 +158,8 @@ void Scheduler::Run() {
     }
 }
 
-void Scheduler::Wait(Transaction* tx) {
-    tx->Notify();
+void Scheduler::wait(Transaction* tx) {
+    tx->notify();
     turn = false;
     cv_.wait(lock_, [this]{ return turn; });
 }

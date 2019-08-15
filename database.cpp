@@ -30,8 +30,8 @@ void Transaction::begin() {
 }
 
 void Transaction::commit() {
-    is_done = true;
     unique_lock<mutex> lock(mtx_);
+    is_done = true;
     scheduler_->turn = true;
     cond_.notify_all();
     db_->apply_tx(this);
@@ -39,21 +39,22 @@ void Transaction::commit() {
 }
 
 void Transaction::abort() {
-    is_done = true;
     unique_lock<mutex> lock(mtx_);
+    is_done = true;
     scheduler_->turn = true;
     cond_.notify_all();
-    // Don't call apply_tx()
     write_set = {};
 }
 
 // TODO: この中でyieldしてCPUを解放する
 bool Transaction::set(Key key, int val) {
+    LOG;
     write_set[key] = make_pair(New, val);
     return false;
 }
 
 optional<int> Transaction::get(Key key) {
+    LOG;
     if (!has_key(key)) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return nullopt;
@@ -69,6 +70,7 @@ optional<int> Transaction::get(Key key) {
 }
 
 bool Transaction::del(Key key) {
+    LOG;
     if (!has_key(key)) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return true;
@@ -78,6 +80,7 @@ bool Transaction::del(Key key) {
 }
 
 vector<string> Transaction::keys() {
+    LOG;
     vector<string> v;
     for (const auto& [key, _] : db_->table) {
         if (write_set.count(key) > 0 && write_set[key].first == Delete)
@@ -102,6 +105,7 @@ bool Transaction::has_key(Key key) {
 // --------------------------------- Scheduler ---------------------------------
 
 void Scheduler::add_tx(Transaction::Logic logic) {
+    LOG;
     // create transaction objects and store it
     Transaction* tx = db_->generate_tx(move(logic));
     transactions.push_back(tx);
@@ -115,6 +119,7 @@ void Scheduler::start() {
     }
     unique_lock<mutex> lock(mtx_);
     cond_.wait(lock, [this]{ return turn; });
+    LOG;
 
     // TODO: optimize by using queue
     for (int i = 0 ; i < transactions.size(); i++) {
@@ -153,8 +158,6 @@ DataBase::DataBase(Scheduler* scheduler, string dumpfilename, string logfilename
     recover();
 
     fd_log_ = open(logfilename.c_str(), O_WRONLY | O_TRUNC);
-
-    LOG;
 }
 
 DataBase::~DataBase() {
@@ -172,8 +175,6 @@ DataBase::~DataBase() {
     // clear log file
     fd_log_ = open(logfilename_.c_str(), O_TRUNC);
     close(fd_log_);
-
-    LOG;
 }
 
 void DataBase::recover() {

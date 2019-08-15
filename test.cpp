@@ -23,6 +23,10 @@ void init() {
     ofs_log.close();
 }
 
+void assert_value(DataBase* db, DataBase::Key key, int expected_value) {
+    assert(db->table[key].value == expected_value);
+}
+
 void tx_basics1(Transaction* tx) {
     tx->begin();
     tx->set("key1", 1);
@@ -44,6 +48,30 @@ void tx_abort(Transaction* tx) {
     tx->abort();
 }
 
+void tx_read_read_conflict1(Transaction* tx) {
+    tx->begin();
+    optional<int> tmp = tx->get("key1");
+    while (!tmp.has_value())
+        tmp = tx->get("key1");
+    tmp = tx->get("key2");
+    while (!tmp.has_value())
+        tmp = tx->get("key2");
+    tx->commit();
+}
+
+void tx_read_read_conflict2(Transaction* tx) {
+    tx->begin();
+    optional<int> tmp = tx->get("key2");
+    while (!tmp.has_value())
+        tmp = tx->get("key2");
+    tmp = tx->get("key1");
+    while (!tmp.has_value())
+        tmp = tx->get("key1");
+    tx->commit();
+}
+
+//------------------------------------------------------------------------------
+
 void test_basics1() {
     Scheduler scheduler = Scheduler();
     DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
@@ -51,9 +79,8 @@ void test_basics1() {
     scheduler.add_tx(move(tx_basics1));
     scheduler.start();
 
-    // TODO: improve assertion
-    assert(db.table["key1"] == 1);
-    assert(db.table["key2"] == 2);
+    assert_value(&db, "key1", 1);
+    assert_value(&db, "key2", 2);
 }
 
 void test_basics2() {
@@ -63,8 +90,7 @@ void test_basics2() {
     scheduler.add_tx(move(tx_basics2));
     scheduler.start();
 
-    // TODO: improve assertion
-    assert(db.table["key1"] == 2);
+    assert_value(&db, "key1", 2);
 }
 
 void test_persistence() {
@@ -76,9 +102,8 @@ void test_persistence() {
     db1.reset();
 
     unique_ptr<DataBase> db2(new DataBase(&scheduler, dumpfilename, logfilename));
-    // TODO: improve assertion
-    assert(db2->table["key1"] == 1);
-    assert(db2->table["key2"] == 2);
+    assert_value(db2.get(), "key1", 1);
+    assert_value(db2.get(), "key2", 2);
     db2.reset();
 }
 
@@ -89,9 +114,8 @@ void test_abort() {
     scheduler.add_tx(move(tx_abort));
     scheduler.start();
 
-    // TODO: improve assertion
-    assert(db.table.count("key1") == 0);
-    assert(db.table.count("key2") == 0);
+    assert_value(&db, "key1", 0);
+    assert_value(&db, "key2", 0);
 }
 
 void test_recover() {
@@ -117,9 +141,23 @@ void test_recover() {
         Scheduler scheduler = Scheduler();
         DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
 
-        assert(db.table["key1"] == 1);
-        assert(db.table["key2"] == 2);
+        assert_value(&db, "key1", 1);
+        assert_value(&db, "key2", 2);
     }
+}
+
+void test_read_read_conflict() {
+    // shouldn't conflict
+    Scheduler scheduler = Scheduler();
+    DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
+
+    scheduler.add_tx(move(tx_basics1));
+    scheduler.add_tx(move(tx_read_read_conflict1));
+    scheduler.add_tx(move(tx_read_read_conflict2));
+    scheduler.start();
+
+    assert_value(&db, "key1", 1);
+    assert_value(&db, "key2", 2);
 }
 
 int main()
@@ -129,6 +167,7 @@ int main()
     TEST(test_persistence);
     TEST(test_abort);
     TEST(test_recover);
+    TEST(test_read_read_conflict);
     init();
     return 0;
 }

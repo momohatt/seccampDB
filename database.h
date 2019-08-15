@@ -90,11 +90,21 @@ class Scheduler {
 class DataBase {
     public:
         using Key = string;
-        using RWLock = int;  // reader-writer lock
 
         enum LockType {
             Read,
             Write,
+        };
+
+        struct RecordInfo {
+            int value;
+
+            // Reader/Writer lock
+            // 0  -> no lock
+            // -1 -> write lock
+            // n > 0 -> read lock (by n threads)
+            int nlock = 0;
+            vector<Transaction*> txs = {};
         };
 
         DataBase(Scheduler* scheduler, string dumpfilename, string logfilename);
@@ -107,8 +117,7 @@ class DataBase {
 
         // TODO: allow other types (string, char, ...)
         // TODO: impl B+-tree (future work)
-        map<Key, int> table = {};
-        map<Key, Transaction*> locks = {};
+        map<Key, RecordInfo> table = {};
 
     private:
         // Persistence

@@ -42,7 +42,6 @@ void transaction4(Transaction* tx) {
     tx->begin();
     optional<int> tmp = tx->get("key1");
     while (!tmp.has_value()) {
-        cout << "waiting..." << endl;
         tmp = tx->get("key1");
     }
     int x = tmp.value();
@@ -68,7 +67,7 @@ int main()
     // scheduler.add_tx(move(transaction2));
     // scheduler.add_tx(move(transaction3));
     scheduler.add_tx(move(transaction4));
-    scheduler.add_tx(move(transaction5));
+    scheduler.add_tx(move(transaction4));
 
     scheduler.start();
     return 0;

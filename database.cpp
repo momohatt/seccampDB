@@ -44,8 +44,10 @@ void Transaction::abort() {
 bool Transaction::set(Key key, int val) {
     LOG;
 
-    while (!db_->get_lock(this, key, DataBase::Write)) {
-        wait();
+    if (db_->table.count(key) > 0) {
+        while (!db_->get_lock(this, key, DataBase::Write)) {
+            wait();
+        }
     }
     write_set[key] = make_pair(New, val);
     wait();
@@ -74,7 +76,7 @@ optional<int> Transaction::get(Key key) {
     }
     read_set.push_back(key);
     wait();
-    return db_->table[key];
+    return db_->table[key].value;
 }
 
 bool Transaction::del(Key key) {
@@ -120,10 +122,12 @@ void Transaction::wait() {
 
 void Transaction::finish() {
     for (const auto& [key, _] : write_set) {
-        db_->locks[key] = nullptr;
+        db_->table[key].nlock = 0;
+        db_->table[key].txs = {};
     }
     for (const auto& key : read_set) {
-        db_->locks[key] = nullptr;
+        db_->table[key].nlock = 0;
+        db_->table[key].txs = {};
     }
     write_set = {};
     is_done = true;
@@ -163,9 +167,8 @@ void Scheduler::start() {
 void Scheduler::run() {
     while (!transactions.empty()) {
         LOG;
-        cout << transactions.size() << endl;
-        for (const auto& [key, l] : db_->locks)
-            cout << key << " " << l << endl;
+        for (const auto& [key, l] : db_->table)
+            cout << key << " " << l.nlock << endl;
         unique_ptr<Transaction> tx = move(transactions.front());
         transactions.pop();
         wait(tx.get());
@@ -203,7 +206,7 @@ DataBase::DataBase(Scheduler* scheduler, string dumpfilename, string logfilename
         if (str == "") continue;
         vector<string> fields = words(str);
         assert(fields.size() == 2);
-        table[fields[0]] = stoi(fields[1]);
+        table[fields[0]].value = stoi(fields[1]);
     }
 
     ifs_dump.close();
@@ -219,8 +222,8 @@ DataBase::~DataBase() {
 
     // checkpointing
     ofstream ofs_dump(dumpfilename_);  // dump file will be truncated
-    for (const auto& [key, value] : table) {
-        ofs_dump << key << " " << value << endl;
+    for (const auto& [key, v] : table) {
+        ofs_dump << key << " " << v.value << endl;
     }
 
     ofs_dump.close();
@@ -261,7 +264,7 @@ void DataBase::recover() {
         assert(((unsigned int) stol(fields[0])) == crc32(str));
         if (stoi(fields[2]) == 0) {
             // New
-            table[fields[1]] = stoi(fields[3]);
+            table[fields[1]].value = stoi(fields[3]);
         } else {
             // Delete
             table.erase(fields[1]);
@@ -278,11 +281,22 @@ unique_ptr<Transaction> DataBase::generate_tx(Transaction::Logic logic) {
 
 bool DataBase::get_lock(Transaction* tx, Key key, LockType locktype) {
     // TODO: handle cases where locktype == Read
-    if (locks.count(key) > 0 && locks[key] != nullptr && locks[key] != tx)
+    assert(table.count(key) > 0);
+    LOG;
+
+    if (locktype == Write) {
+        if (table[key].nlock != 0)
+            return false;
+        table[key].nlock = -1;
+        table[key].txs.push_back(tx);
+        return true;
+    }
+
+    if (table[key].nlock == -1 && table[key].txs[0] != tx)
         return false;
 
-    LOG;
-    locks[key] = tx;
+    table[key].nlock++;
+    table[key].txs.push_back(tx);
     return true;
 }
 
@@ -300,7 +314,7 @@ void DataBase::apply_tx(Transaction* tx) {
     // apply write_set to table
     for (const auto& [key, value] : tx->write_set) {
         if (value.first == New)
-            table[key] = value.second;
+            table[key].value = value.second;
         else
             table.erase(key);
     }

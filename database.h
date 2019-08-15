@@ -35,6 +35,7 @@ class Transaction {
         optional<int> get(Key key);  // read
         bool del(Key key);           // delete
         vector<string> keys();
+        int get_until_success(Key key); // retry 'get' until succeess
 
         void set_thread(thread&& th) { thread_ = move(th); }
 

@@ -50,23 +50,15 @@ void tx_abort(Transaction* tx) {
 
 void tx_read_read_conflict1(Transaction* tx) {
     tx->begin();
-    optional<int> tmp = tx->get("key1");
-    while (!tmp.has_value())
-        tmp = tx->get("key1");
-    tmp = tx->get("key2");
-    while (!tmp.has_value())
-        tmp = tx->get("key2");
+    tx->get_until_success("key1");
+    tx->get_until_success("key2");
     tx->commit();
 }
 
 void tx_read_read_conflict2(Transaction* tx) {
     tx->begin();
-    optional<int> tmp = tx->get("key2");
-    while (!tmp.has_value())
-        tmp = tx->get("key2");
-    tmp = tx->get("key1");
-    while (!tmp.has_value())
-        tmp = tx->get("key1");
+    tx->get_until_success("key2");
+    tx->get_until_success("key1");
     tx->commit();
 }
 

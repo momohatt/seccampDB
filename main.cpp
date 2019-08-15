@@ -40,22 +40,14 @@ void transaction3(Transaction* tx) {
 
 void transaction4(Transaction* tx) {
     tx->begin();
-    optional<int> tmp = tx->get("key1");
-    while (!tmp.has_value()) {
-        tmp = tx->get("key1");
-    }
-    int x = tmp.value();
+    int x = tx->get_until_success("key1");
     tx->set("key2", x + 10);
     tx->commit();
 }
 
 void transaction5(Transaction* tx) {
     tx->begin();
-    optional<int> tmp = tx->get("key2");
-    while (!tmp.has_value()) {
-        tmp = tx->get("key2");
-    }
-    int x = tmp.value();
+    int x = tx->get_until_success("key2");
     tx->set("key1", x + 1);
     tx->commit();
 }
@@ -67,7 +59,7 @@ int main()
     // scheduler.add_tx(move(transaction2));
     // scheduler.add_tx(move(transaction3));
     scheduler.add_tx(move(transaction4));
-    scheduler.add_tx(move(transaction4));
+    scheduler.add_tx(move(transaction5));
 
     scheduler.start();
     return 0;

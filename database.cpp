@@ -114,6 +114,17 @@ vector<string> Transaction::keys() {
     return v;
 }
 
+int Transaction::get_until_success(Key key) {
+    LOG;
+    optional<int> tmp = get(key);
+    while (!tmp.has_value()) {
+        wait();
+        tmp = get(key);
+    }
+    wait();
+    return tmp.value();
+}
+
 void Transaction::wait() {
     scheduler_->notify();
     turn_ = false;

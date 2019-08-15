@@ -15,10 +15,6 @@ class Transaction;
 class Scheduler;
 class DataBase;
 
-// * 1つのthreadに1つのtxが対応
-// * schedulerは複数のtxを管理して適切にスケジュール, yieldする
-// * databaseはthreadを適切にjoinする
-
 enum ChangeMode {
     New,    // set
     Delete  // delete
@@ -47,6 +43,7 @@ class Transaction {
         void terminate() { thread_.join(); }
 
         map<Key, pair<ChangeMode, int>> write_set = {};
+        vector<Key> read_set = {};  // 読んだkeyの集合
         bool is_done = false;
         Logic logic;
 
@@ -65,7 +62,6 @@ class Transaction {
         thread thread_;
         DataBase* db_;
         Scheduler* scheduler_;
-
 };
 
 class Scheduler {
@@ -94,17 +90,25 @@ class Scheduler {
 class DataBase {
     public:
         using Key = string;
+        using RWLock = int;  // reader-writer lock
+
+        enum LockType {
+            Read,
+            Write,
+        };
 
         DataBase(Scheduler* scheduler, string dumpfilename, string logfilename);
         ~DataBase();
 
         unique_ptr<Transaction> generate_tx(Transaction::Logic logic);
+        bool get_lock(Transaction* tx, Key key, LockType locktype);
 
         void apply_tx(Transaction* tx);
 
         // TODO: allow other types (string, char, ...)
         // TODO: impl B+-tree (future work)
         map<Key, int> table = {};
+        map<Key, Transaction*> locks = {};
 
     private:
         // Persistence

@@ -10,7 +10,8 @@
 #include <stdio.h>
 using namespace std;
 
-#define LOG cout << "[LOG](tid: " << this_thread::get_id() << ") " << __FUNCTION__ << "::" << __LINE__ << endl
+#define LOG cout << "[LOG](tid: " << this_thread::get_id() << ") " \
+    << __FUNCTION__ << "::" << __LINE__ << endl
 
 // -------------------------------- Transaction --------------------------------
 
@@ -43,6 +44,9 @@ void Transaction::abort() {
 bool Transaction::set(Key key, int val) {
     LOG;
 
+    while (!db_->get_lock(this, key, DataBase::Write)) {
+        wait();
+    }
     write_set[key] = make_pair(New, val);
     wait();
     return false;
@@ -53,15 +57,22 @@ optional<int> Transaction::get(Key key) {
 
     if (!has_key(key)) {
         cerr << "The key " << key << " doesn't exist" << endl;
+        wait();
         return nullopt;
     }
 
     // read from the write set
     if (write_set.count(key) > 0) {
         assert(write_set[key].first == New);
+        // db_->get_lock(this, key, DataBase::Read);
+        wait();
         return write_set[key].second;
     }
 
+    while (!db_->get_lock(this, key, DataBase::Read)) {
+        wait();
+    }
+    read_set.push_back(key);
     wait();
     return db_->table[key];
 }
@@ -72,6 +83,9 @@ bool Transaction::del(Key key) {
     if (!has_key(key)) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return true;
+    }
+    while (!db_->get_lock(this, key, DataBase::Write)) {
+        wait();
     }
     write_set[key] = make_pair(Delete, 0);
     wait();
@@ -92,6 +106,8 @@ vector<string> Transaction::keys() {
             continue;
         v.push_back(key);
     }
+
+    // TODO: read-write lock
     wait();
     return v;
 }
@@ -103,6 +119,12 @@ void Transaction::wait() {
 }
 
 void Transaction::finish() {
+    for (const auto& [key, _] : write_set) {
+        db_->locks[key] = nullptr;
+    }
+    for (const auto& key : read_set) {
+        db_->locks[key] = nullptr;
+    }
     write_set = {};
     is_done = true;
     turn_ = false;
@@ -141,6 +163,9 @@ void Scheduler::start() {
 void Scheduler::run() {
     while (!transactions.empty()) {
         LOG;
+        cout << transactions.size() << endl;
+        for (const auto& [key, l] : db_->locks)
+            cout << key << " " << l << endl;
         unique_ptr<Transaction> tx = move(transactions.front());
         transactions.pop();
         wait(tx.get());
@@ -249,6 +274,16 @@ void DataBase::recover() {
 unique_ptr<Transaction> DataBase::generate_tx(Transaction::Logic logic) {
     unique_ptr<Transaction> tx(new Transaction(move(logic), this, scheduler_));
     return tx;
+}
+
+bool DataBase::get_lock(Transaction* tx, Key key, LockType locktype) {
+    // TODO: handle cases where locktype == Read
+    if (locks.count(key) > 0 && locks[key] != nullptr && locks[key] != tx)
+        return false;
+
+    LOG;
+    locks[key] = tx;
+    return true;
 }
 
 void DataBase::apply_tx(Transaction* tx) {

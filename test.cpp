@@ -32,7 +32,9 @@ void tx_basics1(Transaction* tx) {
 
 void tx_basics2(Transaction* tx) {
     tx->begin();
-    tx->get("key1");
+    tx->set("key1", 1);
+    optional<int> result = tx->get("key1");
+    tx->set("key1", result.value() + 1);
     tx->commit();
 }
 
@@ -42,7 +44,7 @@ void tx_abort(Transaction* tx) {
     tx->abort();
 }
 
-void test_basics() {
+void test_basics1() {
     Scheduler scheduler = Scheduler();
     DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
 
@@ -52,6 +54,17 @@ void test_basics() {
     // TODO: improve assertion
     assert(db.table["key1"] == 1);
     assert(db.table["key2"] == 2);
+}
+
+void test_basics2() {
+    Scheduler scheduler = Scheduler();
+    DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
+
+    scheduler.add_tx(move(tx_basics2));
+    scheduler.start();
+
+    // TODO: improve assertion
+    assert(db.table["key1"] == 2);
 }
 
 void test_persistence() {
@@ -111,7 +124,8 @@ void test_recover() {
 
 int main()
 {
-    TEST(test_basics);
+    TEST(test_basics1);
+    TEST(test_basics2);
     TEST(test_persistence);
     TEST(test_abort);
     TEST(test_recover);

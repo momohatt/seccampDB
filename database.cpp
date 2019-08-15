@@ -109,7 +109,6 @@ vector<string> Transaction::keys() {
         v.push_back(key);
     }
 
-    // TODO: read-write lock
     wait();
     return v;
 }
@@ -291,7 +290,6 @@ unique_ptr<Transaction> DataBase::generate_tx(Transaction::Logic logic) {
 }
 
 bool DataBase::get_lock(Transaction* tx, Key key, LockType locktype) {
-    // TODO: handle cases where locktype == Read
     assert(table.count(key) > 0);
     LOG;
 

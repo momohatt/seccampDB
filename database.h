@@ -34,8 +34,12 @@ class Transaction {
         bool set(Key key, int val);  // insert & update
         optional<int> get(Key key);  // read
         bool del(Key key);           // delete
+        // Returns a set of all the existing key names.
+        // keys() does *not* support reader/writer lock.
         vector<string> keys();
-        int get_until_success(Key key); // retry 'get' until succeess
+        // Repeat 'get' until it succeeds (e.g. the return value is not nullopt)
+        // and returns the content of the value.
+        int get_until_success(Key key);
 
         void set_thread(thread&& th) { thread_ = move(th); }
 

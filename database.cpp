@@ -267,6 +267,10 @@ void DataBase::recover() {
     string str;
     bool in_transaction = false;
 
+    // assert はデバッグ用途なので、
+    // あり得る入力のチェックには向きませんね。。
+    // エラー処理する必要がありますね。
+
     while (getline(ifs_log, str)) {
         if (str == "")
             continue;
@@ -289,6 +293,10 @@ void DataBase::recover() {
         // checksum validation
         string str = fields[1] + fields[2] + fields[3];
         assert(((unsigned int) stol(fields[0])) == crc32(str));
+
+        // abort/commit の判定コードがなさそう。。。
+        // 読んだログをとにかく replay してしまっているようですね。
+
         if (stoi(fields[2]) == 0) {
             // New
             table[fields[1]].value = stoi(fields[3]);
@@ -330,6 +338,9 @@ bool DataBase::get_lock(Transaction* tx, Key key, BaseOp locktype) {
 void DataBase::apply_tx(Transaction* tx) {
     LOG;
 
+    // write log to the WAL file.
+    // ちょっと WAL 回りの操作は関数化しましょうか。。
+    // serialize/deserialize の対応関係が分かるように(およびテストしやすいように)。
     string buf = "{\n";
     for (const auto& [key, value] : tx->write_set) {
         buf += make_log_format(value.first, key, value.second);

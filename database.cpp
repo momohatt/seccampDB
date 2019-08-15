@@ -16,8 +16,8 @@ using namespace std;
 
 // -------------------------------- Transaction --------------------------------
 
-mutex mtx_;
-condition_variable cond_;
+mutex giant_mtx_;
+condition_variable cond_tx_done_;
 
 Transaction::Transaction(
         Transaction::Logic logic, DataBase* db, Scheduler* scheduler)
@@ -25,35 +25,35 @@ Transaction::Transaction(
     db_(db),
     scheduler_(scheduler) {}
 
-void Transaction::begin() {
+void Transaction::Begin() {
     // TODO: waitする
 }
 
-void Transaction::commit() {
-    unique_lock<mutex> lock(mtx_);
+void Transaction::Commit() {
+    unique_lock<mutex> lock(giant_mtx_);
     is_done = true;
     scheduler_->turn = true;
-    cond_.notify_all();
+    cond_tx_done_.notify_one();
     db_->apply_tx(this);
     write_set = {};
 }
 
-void Transaction::abort() {
-    unique_lock<mutex> lock(mtx_);
+void Transaction::Abort() {
+    unique_lock<mutex> lock(giant_mtx_);
     is_done = true;
     scheduler_->turn = true;
-    cond_.notify_all();
+    cond_tx_done_.notify_one();
     write_set = {};
 }
 
 // TODO: この中でyieldしてCPUを解放する
-bool Transaction::set(Key key, int val) {
+bool Transaction::Set(Key key, int val) {
     LOG;
     write_set[key] = make_pair(New, val);
     return false;
 }
 
-optional<int> Transaction::get(Key key) {
+optional<int> Transaction::Get(Key key) {
     LOG;
     if (!has_key(key)) {
         cerr << "The key " << key << " doesn't exist" << endl;
@@ -69,7 +69,7 @@ optional<int> Transaction::get(Key key) {
     return db_->table[key];
 }
 
-bool Transaction::del(Key key) {
+bool Transaction::Del(Key key) {
     LOG;
     if (!has_key(key)) {
         cerr << "The key " << key << " doesn't exist" << endl;
@@ -79,7 +79,7 @@ bool Transaction::del(Key key) {
     return false;
 }
 
-vector<string> Transaction::keys() {
+vector<string> Transaction::Keys() {
     LOG;
     vector<string> v;
     for (const auto& [key, _] : db_->table) {
@@ -111,20 +111,25 @@ void Scheduler::add_tx(Transaction::Logic logic) {
     transactions.push_back(tx);
 }
 
-void Scheduler::start() {
+void Scheduler::Start() {
     // spawn transaction threads
+    unique_lock<mutex> lock(giant_mtx_);
+    LOG;
     for (const auto& tx : transactions) {
         thread th(tx->logic, tx);
         tx->set_thread(move(th));
     }
-    unique_lock<mutex> lock(mtx_);
-    cond_.wait(lock, [this]{ return turn; });
-    LOG;
+    // TODO: ここはasyncにできないのか
+    cond_tx_done_.wait(lock, [this]{ return turn; });
+    OnTxFinish();
+}
 
+void Scheduler::OnTxFinish() {
+    LOG;
     // TODO: optimize by using queue
     for (int i = 0 ; i < transactions.size(); i++) {
         if (transactions[i]->is_done) {
-            transactions[i]->join();
+            transactions[i]->Join();
             transactions.erase(transactions.begin() + i);
         }
     }

@@ -17,19 +17,19 @@ Scheduler scheduler = Scheduler();
 DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
 
 void transaction1(Transaction* tx) {
-    tx->begin();
-    tx->set("key1", 1);
-    tx->set("key2", 2);
-    tx->commit();
+    tx->Begin();
+    tx->Set("key1", 1);
+    tx->Set("key2", 2);
+    tx->Commit();
     // vector<string> keys = tx->keys();
     // for (const auto& key : keys)
     //     cout << key << endl;
 }
 
 void transaction2(Transaction* tx) {
-    tx->begin();
-    tx->set("key3", 3);
-    tx->commit();
+    tx->Begin();
+    tx->Set("key3", 3);
+    tx->Commit();
 }
 
 // transaction logic
@@ -38,6 +38,6 @@ int main()
     scheduler.add_tx(move(transaction1));
     // scheduler.add_tx(move(transaction2));
 
-    scheduler.start();
+    scheduler.Start();
     return 0;
 }

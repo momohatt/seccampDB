@@ -28,17 +28,17 @@ class Transaction {
 
         Transaction(Logic logic, DataBase* db, Scheduler* scheduler);
 
-        void begin();
-        void commit();
-        void abort();
+        void Begin();
+        void Commit();
+        void Abort();
 
-        bool set(Key key, int val);  // insert & update
-        optional<int> get(Key key);  // read
-        bool del(Key key);           // delete
-        vector<string> keys();
+        bool Set(Key key, int val);  // insert & update
+        optional<int> Get(Key key);  // read
+        bool Del(Key key);           // delete
+        vector<string> Keys();
 
         void set_thread(thread&& th) { thread_ = move(th); }
-        void join() { thread_.join(); }
+        void Join() { thread_.join(); }
 
         map<Key, pair<ChangeMode, int>> write_set = {};
         bool is_done = false;
@@ -60,11 +60,11 @@ class Scheduler {
         vector<Transaction*> transactions;
 
         void add_tx(Transaction::Logic logic);
+        void set_db(DataBase* db) { db_ = db; }
 
         // start spawning threads
-        void start();
-
-        void set_db(DataBase* db) { db_ = db; }
+        void Start();
+        void OnTxFinish();
 
         bool turn = false;
 

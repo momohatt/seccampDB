@@ -1,11 +1,14 @@
 #ifndef __DATABASE_H__
 #define __DATABASE_H__
 
+#include <condition_variable>
 #include <map>
 #include <optional>
 #include <string>
 #include <thread>
 #include <vector>
+
+#include "utils.h"
 using namespace std;
 
 class Transaction;
@@ -38,16 +41,23 @@ class Transaction {
         vector<string> Keys();
 
         void set_thread(thread&& th) { thread_ = move(th); }
+
+        void Notify() { turn = true; cv_.notify_one(); }
+        void Wait(unique_lock<mutex>& lock) {
+            cv_.wait(lock, [this]{ return turn; });
+        }
         void Terminate() { thread_.join(); }
 
         map<Key, pair<ChangeMode, int>> write_set = {};
         bool is_done = false;
+        bool turn = false;
         Logic logic;
 
     private:
         // returns if |db_| or |write_set| has the specified key
         bool has_key(Key key);
 
+        condition_variable cv_;
         thread thread_;
         DataBase* db_;
         Scheduler* scheduler_;
@@ -57,7 +67,7 @@ class Transaction {
 class Scheduler {
     public:
         // TODO: これをunique_ptrにすることは可能か？
-        vector<Transaction*> transactions;
+        iterable_queue<Transaction*> transactions;
 
         void add_tx(Transaction::Logic logic);
         void set_db(DataBase* db) { db_ = db; }
@@ -65,6 +75,7 @@ class Scheduler {
         // starts spawning threads
         void Start();
 
+        // Runs round-robin schedule
         void Run();
 
         // |OnTxFinish| gets called every time a transaction is finished

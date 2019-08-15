@@ -1,8 +1,6 @@
 #include "database.h"
-#include "utils.h"
 
 #include <iostream>
-#include <condition_variable>
 #include <mutex>
 #include <fstream>
 #include <cstdlib>
@@ -27,11 +25,14 @@ Transaction::Transaction(
 
 void Transaction::Begin() {
     unique_lock<mutex> lock(giant_mtx_);
+    Wait(lock);
 }
 
 void Transaction::Commit() {
-    LOG;
     unique_lock<mutex> lock(giant_mtx_);
+    Wait(lock);
+    LOG;
+
     db_->apply_tx(this);
     write_set = {};
     is_done = true;
@@ -41,8 +42,10 @@ void Transaction::Commit() {
 }
 
 void Transaction::Abort() {
-    LOG;
     unique_lock<mutex> lock(giant_mtx_);
+    Wait(lock);
+    LOG;
+
     write_set = {};
     is_done = true;
 
@@ -52,13 +55,19 @@ void Transaction::Abort() {
 
 // TODO: この中でyieldしてCPUを解放する
 bool Transaction::Set(Key key, int val) {
+    unique_lock<mutex> lock(giant_mtx_);
+    Wait(lock);
     LOG;
+
     write_set[key] = make_pair(New, val);
     return false;
 }
 
 optional<int> Transaction::Get(Key key) {
+    unique_lock<mutex> lock(giant_mtx_);
+    Wait(lock);
     LOG;
+
     if (!has_key(key)) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return nullopt;
@@ -74,7 +83,10 @@ optional<int> Transaction::Get(Key key) {
 }
 
 bool Transaction::Del(Key key) {
+    unique_lock<mutex> lock(giant_mtx_);
+    Wait(lock);
     LOG;
+
     if (!has_key(key)) {
         cerr << "The key " << key << " doesn't exist" << endl;
         return true;
@@ -84,7 +96,10 @@ bool Transaction::Del(Key key) {
 }
 
 vector<string> Transaction::Keys() {
+    unique_lock<mutex> lock(giant_mtx_);
+    Wait(lock);
     LOG;
+
     vector<string> v;
     for (const auto& [key, _] : db_->table) {
         if (write_set.count(key) > 0 && write_set[key].first == Delete)
@@ -112,7 +127,7 @@ void Scheduler::add_tx(Transaction::Logic logic) {
     LOG;
     // create transaction objects and store it
     Transaction* tx = db_->generate_tx(move(logic));
-    transactions.push_back(tx);
+    transactions.push(tx);
 }
 
 void Scheduler::Start() {
@@ -129,25 +144,22 @@ void Scheduler::Start() {
 }
 
 void Scheduler::Run() {
-    while (transactions.size() > 0) {
-        // TODO: なぜかここでcond_tx_done_ を永遠に待ってしまう
+    while (!transactions.empty()) {
+        LOG;
+        Transaction* tx = transactions.front();
+        transactions.pop();
+        tx->Notify();
+
         unique_lock<mutex> lock(giant_mtx_);
         cond_tx_done_.wait(lock, [this]{ return turn; });
-        OnTxFinish();
-        this_thread::yield();
-    }
-}
-
-void Scheduler::OnTxFinish() {
-    LOG;
-    // TODO: optimize by using queue
-    for (int i = 0 ; i < transactions.size(); i++) {
-        if (transactions[i]->is_done) {
-            transactions[i]->Terminate();
-            transactions.erase(transactions.begin() + i);
+        tx->turn = false;
+        if (tx->is_done) {
+            tx->Terminate();
+            continue;
         }
+        transactions.push(tx);
+        turn = false;
     }
-    turn = false;
 }
 
 // ---------------------------------- DataBase ---------------------------------

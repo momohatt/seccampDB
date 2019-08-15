@@ -65,6 +65,7 @@ void test_persistence() {
     unique_ptr<DataBase> db2(new DataBase(&scheduler, dumpfilename, logfilename));
     // TODO: improve assertion
     assert(db2->table["key1"] == 1);
+    assert(db2->table["key2"] == 2);
     db2.reset();
 }
 
@@ -77,6 +78,7 @@ void test_abort() {
 
     // TODO: improve assertion
     assert(db.table.count("key1") == 0);
+    assert(db.table.count("key2") == 0);
 }
 
 void test_recover() {

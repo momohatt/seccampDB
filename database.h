@@ -43,21 +43,23 @@ class Transaction {
         void set_thread(thread&& th) { thread_ = move(th); }
 
         // schedulerが起こすときに呼ぶ
-        void notify() { turn = true; cv_.notify_one(); }
+        void notify() { turn_ = true; cv_.notify_one(); }
         void terminate() { thread_.join(); }
 
         map<Key, pair<ChangeMode, int>> write_set = {};
         bool is_done = false;
-        bool turn = false;
         Logic logic;
 
     private:
-        // 処理をschedulerに渡す
+        // 処理をschedulerに渡してwait
         void wait();
+        // 処理をschedulerに渡すがwaitしない
+        void finish();
 
         // returns if |db_| or |write_set| has the specified key
         bool has_key(Key key);
 
+        bool turn_ = false;
         unique_lock<mutex> lock_;
         condition_variable cv_;
         thread thread_;
@@ -79,12 +81,11 @@ class Scheduler {
         // Runs round-robin schedule
         void run();
 
-        void notify() { turn = true; cv_.notify_one(); }
-
-        bool turn = false;
+        void notify() { turn_ = true; cv_.notify_one(); }
 
     private:
         void wait(Transaction* tx);
+        bool turn_ = false;
         condition_variable cv_;
         unique_lock<mutex> lock_;
         DataBase* db_;

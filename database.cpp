@@ -31,23 +31,13 @@ void Transaction::begin() {
 
 void Transaction::commit() {
     LOG;
-
     db_->apply_tx(this);
-    write_set = {};
-    is_done = true;
-
-    scheduler_->notify();
-    lock_.unlock();
+    finish();
 }
 
 void Transaction::abort() {
     LOG;
-
-    write_set = {};
-    is_done = true;
-
-    scheduler_->notify();
-    lock_.unlock();
+    finish();
 }
 
 bool Transaction::set(Key key, int val) {
@@ -108,8 +98,16 @@ vector<string> Transaction::keys() {
 
 void Transaction::wait() {
     scheduler_->notify();
-    turn = false;
-    cv_.wait(lock_, [this]{ return turn; });
+    turn_ = false;
+    cv_.wait(lock_, [this]{ return turn_; });
+}
+
+void Transaction::finish() {
+    write_set = {};
+    is_done = true;
+    turn_ = false;
+    lock_.unlock();
+    scheduler_->notify();
 }
 
 bool Transaction::has_key(Key key) {
@@ -147,21 +145,19 @@ void Scheduler::run() {
         transactions.pop();
         wait(tx.get());
 
-        tx->turn = false;
         if (tx->is_done) {
             tx->terminate();
             tx.reset();
             continue;
         }
         transactions.push(move(tx));
-        turn = false;
     }
 }
 
 void Scheduler::wait(Transaction* tx) {
     tx->notify();
-    turn = false;
-    cv_.wait(lock_, [this]{ return turn; });
+    turn_ = false;
+    cv_.wait(lock_, [this]{ return turn_; });
 }
 
 // ---------------------------------- DataBase ---------------------------------

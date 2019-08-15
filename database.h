@@ -42,10 +42,10 @@ class Transaction {
 
         void set_thread(thread&& th) { thread_ = move(th); }
 
+        // schedulerが起こすときに呼ぶ
         void Notify() { turn = true; cv_.notify_one(); }
-        void Wait(unique_lock<mutex>& lock) {
-            cv_.wait(lock, [this]{ return turn; });
-        }
+        // 処理をschedulerに渡す
+        void Wait();
         void Terminate() { thread_.join(); }
 
         map<Key, pair<ChangeMode, int>> write_set = {};
@@ -57,6 +57,7 @@ class Transaction {
         // returns if |db_| or |write_set| has the specified key
         bool has_key(Key key);
 
+        unique_lock<mutex> lock_;
         condition_variable cv_;
         thread thread_;
         DataBase* db_;
@@ -66,7 +67,7 @@ class Transaction {
 
 class Scheduler {
     public:
-        // TODO: これをunique_ptrにすることは可能か？
+        // TODO: これをunique_ptrにする
         iterable_queue<Transaction*> transactions;
 
         void add_tx(Transaction::Logic logic);
@@ -82,6 +83,7 @@ class Scheduler {
         void OnTxFinish();
 
         bool turn = false;
+        condition_variable cond_tx_done_;
 
     private:
         DataBase* db_;

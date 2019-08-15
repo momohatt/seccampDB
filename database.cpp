@@ -15,7 +15,6 @@ using namespace std;
 // -------------------------------- Transaction --------------------------------
 
 mutex giant_mtx_;
-condition_variable cond_tx_done_;
 
 Transaction::Transaction(
         Transaction::Logic logic, DataBase* db, Scheduler* scheduler)
@@ -24,13 +23,13 @@ Transaction::Transaction(
     scheduler_(scheduler) {}
 
 void Transaction::Begin() {
+    LOG;
     unique_lock<mutex> lock(giant_mtx_);
-    Wait(lock);
+    lock_ = move(lock);
+    Wait();
 }
 
 void Transaction::Commit() {
-    unique_lock<mutex> lock(giant_mtx_);
-    Wait(lock);
     LOG;
 
     db_->apply_tx(this);
@@ -38,34 +37,31 @@ void Transaction::Commit() {
     is_done = true;
 
     scheduler_->turn = true;
-    cond_tx_done_.notify_one();
+    scheduler_->cond_tx_done_.notify_one();
+    lock_.unlock();
 }
 
 void Transaction::Abort() {
-    unique_lock<mutex> lock(giant_mtx_);
-    Wait(lock);
     LOG;
 
     write_set = {};
     is_done = true;
 
     scheduler_->turn = true;
-    cond_tx_done_.notify_one();
+    scheduler_->cond_tx_done_.notify_one();
+    lock_.unlock();
 }
 
 // TODO: この中でyieldしてCPUを解放する
 bool Transaction::Set(Key key, int val) {
-    unique_lock<mutex> lock(giant_mtx_);
-    Wait(lock);
     LOG;
 
     write_set[key] = make_pair(New, val);
+    Wait();
     return false;
 }
 
 optional<int> Transaction::Get(Key key) {
-    unique_lock<mutex> lock(giant_mtx_);
-    Wait(lock);
     LOG;
 
     if (!has_key(key)) {
@@ -79,12 +75,11 @@ optional<int> Transaction::Get(Key key) {
         return write_set[key].second;
     }
 
+    Wait();
     return db_->table[key];
 }
 
 bool Transaction::Del(Key key) {
-    unique_lock<mutex> lock(giant_mtx_);
-    Wait(lock);
     LOG;
 
     if (!has_key(key)) {
@@ -92,12 +87,11 @@ bool Transaction::Del(Key key) {
         return true;
     }
     write_set[key] = make_pair(Delete, 0);
+    Wait();
     return false;
 }
 
 vector<string> Transaction::Keys() {
-    unique_lock<mutex> lock(giant_mtx_);
-    Wait(lock);
     LOG;
 
     vector<string> v;
@@ -111,7 +105,15 @@ vector<string> Transaction::Keys() {
             continue;
         v.push_back(key);
     }
+    Wait();
     return v;
+}
+
+void Transaction::Wait() {
+    scheduler_->turn = true;
+    scheduler_->cond_tx_done_.notify_one();
+    cv_.wait(lock_, [this]{ return turn; });
+    turn = false;
 }
 
 bool Transaction::has_key(Key key) {

@@ -23,7 +23,7 @@ void init() {
     ofs_log.close();
 }
 
-void assert_value(DataBase* db, DataBase::Key key, int expected_value) {
+void assert_value(DataBase* db, Key key, int expected_value) {
     assert(db->table[key].value == expected_value);
 }
 

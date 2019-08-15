@@ -25,9 +25,10 @@ enum BaseOp {
     Write,
 };
 
+using Key = string;
+
 class Transaction {
     public:
-        using Key = string;
         using Logic = function<void(Transaction*)>;
 
         Transaction(int id, Logic logic, DataBase* db, Scheduler* scheduler);
@@ -68,6 +69,7 @@ class Transaction {
 
         bool turn_ = false;
         int id_;
+        vector<Key> write_log_ = {};
         unique_lock<mutex> lock_;
         condition_variable cv_;
         thread thread_;
@@ -78,6 +80,8 @@ class Transaction {
 class Scheduler {
     public:
         iterable_queue<unique_ptr<Transaction>> transactions;
+
+        ~Scheduler();
 
         void add_tx(Transaction::Logic logic);
         void set_db(DataBase* db) { db_ = db; }
@@ -90,19 +94,29 @@ class Scheduler {
 
         void notify() { turn_ = true; cv_.notify_one(); }
 
+        void log(int id, Key key, BaseOp rw) {
+            io_log_.emplace_back(id, key, rw);
+        }
+
     private:
+        struct Log {
+            int id;
+            Key key;
+            BaseOp op;
+
+            Log(int id, Key key, BaseOp op);
+        };
+
         void wait(Transaction* tx);
         bool turn_ = false;
         condition_variable cv_;
         unique_lock<mutex> lock_;
-        vector<pair<int, BaseOp>> read_write_log_ = {};
+        vector<Log> io_log_ = {};
         DataBase* db_;
 };
 
 class DataBase {
     public:
-        using Key = string;
-
         struct RecordInfo {
             int value;
 

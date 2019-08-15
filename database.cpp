@@ -10,10 +10,8 @@
 #include <stdio.h>
 using namespace std;
 
-// #define LOG cout << "[LOG](tid: " << this_thread::get_id() << ") " \
-//     << __FUNCTION__ << "::" << __LINE__ << endl
-#define LOG   printf("[LOG]          %s::%d\n", __FUNCTION__, __LINE__)
-#define TXLOG printf("[LOG](txid: %d) %s::%d\n", id_, __FUNCTION__, __LINE__)
+#define LOG   printf("[LOG]          %s::%d\n", __FUNCTION__, __LINE__);
+#define TXLOG printf("[LOG](txid: %d) %s::%d\n", id_, __FUNCTION__, __LINE__);
 
 // -------------------------------- Transaction --------------------------------
 
@@ -36,6 +34,9 @@ void Transaction::begin() {
 void Transaction::commit() {
     TXLOG;
     db_->apply_tx(this);
+    for (const auto& key : write_log_) {
+        scheduler_->log(id_, key, Write);
+    }
     finish();
 }
 
@@ -52,6 +53,7 @@ bool Transaction::set(Key key, int val) {
             wait();
         }
     }
+    write_log_.push_back(key);
     write_set[key] = make_pair(New, val);
     wait();
     return false;
@@ -71,6 +73,7 @@ optional<int> Transaction::get(Key key) {
         assert(write_set[key].first == New);
         // db_->get_lock(this, key, DataBase::Read);
         wait();
+        scheduler_->log(id_, key, Read);
         return write_set[key].second;
     }
 
@@ -79,6 +82,7 @@ optional<int> Transaction::get(Key key) {
     }
     read_set.push_back(key);
     wait();
+    scheduler_->log(id_, key, Read);
     return db_->table[key].value;
 }
 
@@ -92,6 +96,7 @@ bool Transaction::del(Key key) {
     while (!db_->get_lock(this, key, Write)) {
         wait();
     }
+    write_log_.push_back(key);
     write_set[key] = make_pair(Delete, 0);
     wait();
     return false;
@@ -158,6 +163,13 @@ bool Transaction::has_key(Key key) {
 
 // --------------------------------- Scheduler ---------------------------------
 
+Scheduler::~Scheduler() {
+    for (const auto& log : io_log_) {
+        printf("%d %s %c\n",
+                log.id, log.key.c_str(), (log.op == Read) ? 'r' : 'w');
+    }
+}
+
 void Scheduler::add_tx(Transaction::Logic logic) {
     LOG;
     // create transaction objects and store it
@@ -179,7 +191,6 @@ void Scheduler::start() {
 
 void Scheduler::run() {
     while (!transactions.empty()) {
-        LOG;
         // for (const auto& [key, l] : db_->table)
         //     cout << key << " " << l.nlock << endl;
         unique_ptr<Transaction> tx = move(transactions.front());
@@ -200,6 +211,9 @@ void Scheduler::wait(Transaction* tx) {
     turn_ = false;
     cv_.wait(lock_, [this]{ return turn_; });
 }
+
+Scheduler::Log::Log(int id, Key key, BaseOp op)
+  : id(id), key(key), op(op) {}
 
 // ---------------------------------- DataBase ---------------------------------
 

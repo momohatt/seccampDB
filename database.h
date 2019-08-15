@@ -44,8 +44,6 @@ class Transaction {
 
         // schedulerが起こすときに呼ぶ
         void Notify() { turn = true; cv_.notify_one(); }
-        // 処理をschedulerに渡す
-        void Wait();
         void Terminate() { thread_.join(); }
 
         map<Key, pair<ChangeMode, int>> write_set = {};
@@ -54,6 +52,9 @@ class Transaction {
         Logic logic;
 
     private:
+        // 処理をschedulerに渡す
+        void Wait();
+
         // returns if |db_| or |write_set| has the specified key
         bool has_key(Key key);
 
@@ -82,10 +83,14 @@ class Scheduler {
         // |OnTxFinish| gets called every time a transaction is finished
         void OnTxFinish();
 
+        void Notify() { turn = true; cv_.notify_one(); }
+
         bool turn = false;
-        condition_variable cond_tx_done_;
 
     private:
+        void Wait(Transaction* tx);
+        condition_variable cv_;
+        unique_lock<mutex> lock_;
         DataBase* db_;
 };
 

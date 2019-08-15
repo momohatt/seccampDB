@@ -36,8 +36,7 @@ void Transaction::Commit() {
     write_set = {};
     is_done = true;
 
-    scheduler_->turn = true;
-    scheduler_->cond_tx_done_.notify_one();
+    scheduler_->Notify();
     lock_.unlock();
 }
 
@@ -47,8 +46,7 @@ void Transaction::Abort() {
     write_set = {};
     is_done = true;
 
-    scheduler_->turn = true;
-    scheduler_->cond_tx_done_.notify_one();
+    scheduler_->Notify();
     lock_.unlock();
 }
 
@@ -110,10 +108,9 @@ vector<string> Transaction::Keys() {
 }
 
 void Transaction::Wait() {
-    scheduler_->turn = true;
-    scheduler_->cond_tx_done_.notify_one();
-    cv_.wait(lock_, [this]{ return turn; });
+    scheduler_->Notify();
     turn = false;
+    cv_.wait(lock_, [this]{ return turn; });
 }
 
 bool Transaction::has_key(Key key) {
@@ -134,13 +131,12 @@ void Scheduler::add_tx(Transaction::Logic logic) {
 
 void Scheduler::Start() {
     // spawn transaction threads
-    {
-        unique_lock<mutex> lock(giant_mtx_);
-        LOG;
-        for (const auto& tx : transactions) {
-            thread th(tx->logic, tx.get());
-            tx->set_thread(move(th));
-        }
+    unique_lock<mutex> lock(giant_mtx_);
+    lock_ = move(lock);
+    LOG;
+    for (const auto& tx : transactions) {
+        thread th(tx->logic, tx.get());
+        tx->set_thread(move(th));
     }
     Run();
 }
@@ -150,10 +146,8 @@ void Scheduler::Run() {
         LOG;
         unique_ptr<Transaction> tx = move(transactions.front());
         transactions.pop();
-        tx->Notify();
+        Wait(tx.get());
 
-        unique_lock<mutex> lock(giant_mtx_);
-        cond_tx_done_.wait(lock, [this]{ return turn; });
         tx->turn = false;
         if (tx->is_done) {
             tx->Terminate();
@@ -163,6 +157,12 @@ void Scheduler::Run() {
         transactions.push(move(tx));
         turn = false;
     }
+}
+
+void Scheduler::Wait(Transaction* tx) {
+    tx->Notify();
+    turn = false;
+    cv_.wait(lock_, [this]{ return turn; });
 }
 
 // ---------------------------------- DataBase ---------------------------------

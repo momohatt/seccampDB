@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <functional>
 
 #include "utils.h"
 using namespace std;

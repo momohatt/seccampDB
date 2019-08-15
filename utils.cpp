@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <cassert>
 
 #include <iostream>
 #include <fstream>
@@ -9,7 +10,7 @@ vector<string> words(const string &str) {
     int start_pos = 0;
     bool in_word = false;
 
-    for (int i = 0; i < str.size(); i++) {
+    for (size_t i = 0; i < str.size(); i++) {
         if (str[i] == ' ' || str[i] == '\n' || str[i] == '\t') {
             if (!in_word)
                 continue;
@@ -150,7 +151,7 @@ unsigned int crc32(string str)
     unsigned int crc = 0;
 
     crc = crcinit ^ 0xFFFFFFFF;
-    for (int i = 0; i < str.size(); i++) {
+    for (size_t i = 0; i < str.size(); i++) {
         crc = ((crc >> 8) & 0x00FFFFFF) ^ crc32tab[(crc ^ (str[i])) & 0xFF];
     }
     return crc ^ 0xFFFFFFFF;

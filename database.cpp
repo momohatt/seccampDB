@@ -128,8 +128,8 @@ bool Transaction::has_key(Key key) {
 void Scheduler::add_tx(Transaction::Logic logic) {
     LOG;
     // create transaction objects and store it
-    Transaction* tx = db_->generate_tx(move(logic));
-    transactions.push(tx);
+    unique_ptr<Transaction> tx = db_->generate_tx(move(logic));
+    transactions.push(move(tx));
 }
 
 void Scheduler::Start() {
@@ -138,7 +138,7 @@ void Scheduler::Start() {
         unique_lock<mutex> lock(giant_mtx_);
         LOG;
         for (const auto& tx : transactions) {
-            thread th(tx->logic, tx);
+            thread th(tx->logic, tx.get());
             tx->set_thread(move(th));
         }
     }
@@ -148,7 +148,7 @@ void Scheduler::Start() {
 void Scheduler::Run() {
     while (!transactions.empty()) {
         LOG;
-        Transaction* tx = transactions.front();
+        unique_ptr<Transaction> tx = move(transactions.front());
         transactions.pop();
         tx->Notify();
 
@@ -157,9 +157,10 @@ void Scheduler::Run() {
         tx->turn = false;
         if (tx->is_done) {
             tx->Terminate();
+            tx.reset();
             continue;
         }
-        transactions.push(tx);
+        transactions.push(move(tx));
         turn = false;
     }
 }
@@ -250,8 +251,8 @@ void DataBase::recover() {
     ifs_log.close();
 }
 
-Transaction* DataBase::generate_tx(Transaction::Logic logic) {
-    Transaction* tx = new Transaction(move(logic), this, scheduler_);
+unique_ptr<Transaction> DataBase::generate_tx(Transaction::Logic logic) {
+    unique_ptr<Transaction> tx(new Transaction(move(logic), this, scheduler_));
     return tx;
 }
 

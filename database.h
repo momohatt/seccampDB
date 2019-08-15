@@ -68,7 +68,7 @@ class Transaction {
 class Scheduler {
     public:
         // TODO: これをunique_ptrにする
-        iterable_queue<Transaction*> transactions;
+        iterable_queue<unique_ptr<Transaction>> transactions;
 
         void add_tx(Transaction::Logic logic);
         void set_db(DataBase* db) { db_ = db; }
@@ -96,7 +96,7 @@ class DataBase {
         DataBase(Scheduler* scheduler, string dumpfilename, string logfilename);
         ~DataBase();
 
-        Transaction* generate_tx(Transaction::Logic logic);
+        unique_ptr<Transaction> generate_tx(Transaction::Logic logic);
 
         void apply_tx(Transaction* tx);
 

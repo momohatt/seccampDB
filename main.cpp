@@ -52,14 +52,36 @@ void transaction5(Transaction* tx) {
     tx->commit();
 }
 
+void transaction_huge(int n, Transaction* tx) {
+    tx->begin();
+    for (int i = 0; i < 100; i++) {
+        tx->set("key" + to_string(i), n);
+    }
+    tx->commit();
+}
+
+void transaction_huge_validate(Transaction* tx) {
+    tx->begin();
+    for (int i = 0; i < 100; i++) {
+        Key key = "key" + to_string(i);
+        int x = tx->get_until_success(key);
+        cout << key << " " << x << endl;
+    }
+    tx->commit();
+}
+
 // transaction logic
 int main()
 {
-    scheduler.add_tx(move(transaction1));
-    // scheduler.add_tx(move(transaction2));
-    // scheduler.add_tx(move(transaction3));
-    scheduler.add_tx(move(transaction4));
-    scheduler.add_tx(move(transaction4));
+    // scheduler.add_tx(move(transaction1));
+    // // scheduler.add_tx(move(transaction2));
+    // // scheduler.add_tx(move(transaction3));
+    // scheduler.add_tx(move(transaction4));
+    // scheduler.add_tx(move(transaction4));
+
+    for (int n = 0; n < 1000; n++) {
+        scheduler.add_tx(move([n](Transaction* tx) { transaction_huge(n, tx); }));
+    }
 
     scheduler.start();
     return 0;

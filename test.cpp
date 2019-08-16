@@ -62,6 +62,14 @@ void tx_read_read_conflict2(Transaction* tx) {
     tx->commit();
 }
 
+void tx_huge(int n, Transaction* tx) {
+    tx->begin();
+    for (int i = 0; i < 100; i++) {
+        tx->set("key" + to_string(i), n);
+    }
+    tx->commit();
+}
+
 //------------------------------------------------------------------------------
 
 void test_basics1() {
@@ -152,6 +160,21 @@ void test_read_read_conflict() {
     assert_value(&db, "key2", 2);
 }
 
+void test_huge() {
+    Scheduler scheduler = Scheduler();
+    DataBase db = DataBase(&scheduler, dumpfilename, logfilename);
+
+    for (int n = 0; n < 1000; n++) {
+        scheduler.add_tx([n](Transaction* tx) { tx_huge(n, tx); });
+    }
+    scheduler.start();
+
+    int val = db.table["key0"].value;
+    for (int i = 0; i < 100; i++) {
+        assert_value(&db, "key" + to_string(i), val);
+    }
+}
+
 int main()
 {
     TEST(test_basics1);
@@ -160,6 +183,7 @@ int main()
     TEST(test_abort);
     TEST(test_recover);
     TEST(test_read_read_conflict);
+    TEST(test_huge);
     init();
     return 0;
 }

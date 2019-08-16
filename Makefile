@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -Wall -Wextra -O2 -g -std=c++17 -pthread
+CFLAGS = -Wall -Wextra -O2 -std=c++17 -pthread
 
 main: utils.o database.o main.cpp
 	$(CC) $(CFLAGS) $^ -o $@

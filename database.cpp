@@ -110,7 +110,8 @@ vector<string> Transaction::keys() {
     TXLOG;
 
     vector<string> v;
-    for (const auto& [key, _] : db_->table) {
+    for (const auto& entry : db_->table) {
+        Key key = entry.first;
         if (write_set.count(key) > 0 && write_set[key].first == Delete)
             continue;
         v.push_back(key);
@@ -143,7 +144,8 @@ void Transaction::wait() {
 }
 
 void Transaction::finish() {
-    for (const auto& [key, _] : write_set) {
+    for (const auto& entry : write_set) {
+        Key key = entry.first;
         db_->table[key].nlock = 0;
         db_->table[key].txs = {};
     }

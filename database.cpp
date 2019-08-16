@@ -345,7 +345,12 @@ void DataBase::apply_tx(Transaction* tx) {
     LOG;
 
     string buf = serialize(tx->write_set);
-    write(fd_log_, buf.c_str(), buf.size());
+    size_t nbytes_written = 0;
+    while (nbytes_written < buf.size()) {
+        nbytes_written += write(fd_log_,
+                buf.c_str() + nbytes_written,
+                buf.size() - nbytes_written);
+    }
     fsync(fd_log_);
 
     // apply write_set to table

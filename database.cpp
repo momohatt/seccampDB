@@ -4,7 +4,6 @@
 #include <mutex>
 #include <fstream>
 #include <cstdlib>
-#include <cassert>
 #include <fcntl.h>  // open
 #include <unistd.h>  // close
 #include <stdio.h>
@@ -12,6 +11,8 @@ using namespace std;
 
 #define LOG   printf("[LOG]          %s::%d\n", __FUNCTION__, __LINE__);
 #define TXLOG printf("[LOG](txid: %d) %s::%d\n", id_, __FUNCTION__, __LINE__);
+#define UNREACHABLE \
+    fprintf(stderr, "Shouldn't reach here: %s::%d\n", __FUNCTION__, __LINE__);
 
 // -------------------------------- Transaction --------------------------------
 
@@ -70,7 +71,10 @@ optional<int> Transaction::get(Key key) {
 
     // read from the write set
     if (write_set.count(key) > 0) {
-        assert(write_set[key].first == New);
+        if (write_set[key].first != New) {
+            UNREACHABLE;
+            return nullopt;
+        }
         // db_->get_lock(this, key, DataBase::Read);
         wait();
         scheduler_->log(id_, key, Read);
@@ -232,7 +236,10 @@ DataBase::DataBase(Scheduler* scheduler, string dumpfilename, string logfilename
     while (getline(ifs_dump, str)) {
         if (str == "") continue;
         vector<string> fields = words(str);
-        assert(fields.size() == 2);
+        if (fields.size() != 2) {
+            UNREACHABLE;
+            exit(1);
+        }
         table[fields[0]].value = stoi(fields[1]);
     }
 
@@ -273,14 +280,18 @@ void DataBase::recover() {
             continue;
 
        if (line == "{") {
-            assert(in_transaction == false
-                    && "nested transaction log is not allowed");
+            if (in_transaction) {
+                UNREACHABLE;
+                return;
+            }
             in_transaction = true;
             continue;
         }
         if (line == "}") {
-            assert(in_transaction == true
-                    && "nested transaction log is not allowed");
+            if (!in_transaction) {
+                UNREACHABLE;
+                return;
+            }
             in_transaction = false;
             continue;
         }
@@ -308,7 +319,10 @@ unique_ptr<Transaction> DataBase::generate_tx(Transaction::Logic logic) {
 }
 
 bool DataBase::get_lock(Transaction* tx, Key key, BaseOp locktype) {
-    assert(table.count(key) > 0);
+    if (table.count(key) <= 0) {
+        UNREACHABLE;
+        return false;
+    }
     LOG;
 
     if (locktype == Write) {

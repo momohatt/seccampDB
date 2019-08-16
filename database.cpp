@@ -264,37 +264,37 @@ DataBase::~DataBase() {
 void DataBase::recover() {
     LOG;
     ifstream ifs_log(logfilename_);
-    string str;
+    string line;
+    vector<string> buf;
     bool in_transaction = false;
 
-    while (getline(ifs_log, str)) {
-        if (str == "")
+    while (getline(ifs_log, line)) {
+        if (line == "")
             continue;
 
-       if (str == "{") {
+       if (line == "{") {
             assert(in_transaction == false
                     && "nested transaction log is not allowed");
             in_transaction = true;
             continue;
         }
-        if (str == "}") {
+        if (line == "}") {
             assert(in_transaction == true
                     && "nested transaction log is not allowed");
             in_transaction = false;
             continue;
         }
 
-        vector<string> fields = words(str);
-        assert(fields.size() == 4);
-        // checksum validation
-        string str = fields[1] + fields[2] + fields[3];
-        assert(((unsigned int) stol(fields[0])) == crc32(str));
-        if (stoi(fields[2]) == 0) {
-            // New
-            table[fields[1]].value = stoi(fields[3]);
+        buf.push_back(line);
+    }
+
+    DBDiff diff = {};
+    deserialize(diff, buf);
+    for (const auto& [key, value] : diff) {
+        if (value.first == New) {
+            table[key].value = value.second;
         } else {
-            // Delete
-            table.erase(fields[1]);
+            table.erase(key);
         }
     }
 
@@ -330,11 +330,7 @@ bool DataBase::get_lock(Transaction* tx, Key key, BaseOp locktype) {
 void DataBase::apply_tx(Transaction* tx) {
     LOG;
 
-    string buf = "{\n";
-    for (const auto& [key, value] : tx->write_set) {
-        buf += make_log_format(value.first, key, value.second);
-    }
-    buf += "}\n";
+    string buf = serialize(tx->write_set);
     write(fd_log_, buf.c_str(), buf.size());
     fsync(fd_log_);
 
@@ -345,6 +341,35 @@ void DataBase::apply_tx(Transaction* tx) {
         else
             table.erase(key);
     }
+}
+
+string DataBase::serialize(DBDiff diff) {
+    string buf = "{\n";
+    for (const auto& [key, value] : diff) {
+        buf += make_log_format(value.first, key, value.second);
+    }
+    buf += "}\n";
+    return buf;
+}
+
+void DataBase::deserialize(DBDiff& diff, vector<string> buf) {
+    for (const auto& line : buf) {
+        vector<string> fields = words(line);
+        if (fields.size() != 4) {
+            diff = {};
+            return;
+        }
+        // checksum validation
+        string str = fields[1] + fields[2] + fields[3];
+        if (((unsigned int) stol(fields[0])) != crc32(str)) {
+            diff = {};
+            return;
+        }
+        diff[fields[1]] = make_pair(
+                stoi(fields[2]) ? Delete : New,
+                stoi(fields[3]));
+    }
+    return;
 }
 
 string DataBase::make_log_format(ChangeMode mode, Key key, int val) {

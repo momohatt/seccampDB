@@ -27,6 +27,7 @@ enum BaseOp {
 };
 
 using Key = string;
+using DBDiff = map<Key, pair<ChangeMode, int>>;
 
 class Transaction {
     public:
@@ -54,7 +55,7 @@ class Transaction {
         void notify() { turn_ = true; cv_.notify_one(); }
         void terminate() { thread_.join(); }
 
-        map<Key, pair<ChangeMode, int>> write_set = {};
+        DBDiff write_set = {};
         vector<Key> read_set = {};  // 読んだkeyの集合
         bool is_done = false;
         Logic logic;
@@ -145,6 +146,8 @@ class DataBase {
         // Persistence
         void recover();
 
+        string serialize(DBDiff diff);
+        void deserialize(DBDiff& diff, vector<string> buf);
         string make_log_format(ChangeMode mode, Key key, int value);
 
         Scheduler* scheduler_;
@@ -155,7 +158,7 @@ class DataBase {
 
         // format of output files:
         // DB file:  [key] [value]
-        // log file: [checksum] [key] [0/1] [value]
+        // log file: [checksum] [key] [0/1] [value] (valueはDeleteの場合0)
 };
 
 #endif  // __DATABASE_H__

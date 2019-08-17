@@ -84,7 +84,7 @@ optional<int> Transaction::get(Key key) {
     while (!db_->get_lock(this, key, Read)) {
         wait();
     }
-    read_set.push_back(key);
+    lock_set.push_back(key);
     wait();
     scheduler_->log(id_, key, Read);
     return db_->table[key].value;
@@ -147,11 +147,9 @@ void Transaction::finish() {
     for (const auto& entry : write_set) {
         Key key = entry.first;
         db_->table[key].nlock = 0;
-        db_->table[key].txs = {};
     }
-    for (const auto& key : read_set) {
+    for (const auto& key : lock_set) {
         db_->table[key].nlock = 0;
-        db_->table[key].txs = {};
     }
     write_set = {};
     is_done = true;
@@ -325,21 +323,25 @@ bool DataBase::get_lock(Transaction* tx, Key key, BaseOp locktype) {
         UNREACHABLE;
         return false;
     }
-    LOG;
+
+    if (vexists(tx->lock_set, key)) {
+        return ((locktype == Write && table[key].nlock == -1) ||
+                (locktype == Read && table[key].nlock > 0));
+    }
 
     if (locktype == Write) {
         if (table[key].nlock != 0)
             return false;
         table[key].nlock = -1;
-        table[key].txs.push_back(tx);
+        tx->lock_set.push_back(key);
         return true;
     }
 
-    if (table[key].nlock == -1 && table[key].txs[0] != tx)
+    if (table[key].nlock < 0)
         return false;
 
     table[key].nlock++;
-    table[key].txs.push_back(tx);
+    tx->lock_set.push_back(key);
     return true;
 }
 

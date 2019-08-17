@@ -47,4 +47,9 @@ public:
     const_iterator end() const { return this->c.end(); }
 };
 
+template<typename T>
+bool vexists(vector<T> vec, T key) {
+    return count(vec.begin(), vec.end(), key) > 0;
+}
+
 #endif  // __UTILS_H__

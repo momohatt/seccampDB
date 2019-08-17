@@ -56,7 +56,7 @@ class Transaction {
         void terminate() { thread_.join(); }
 
         DBDiff write_set = {};
-        vector<Key> read_set = {};  // 読んだkeyの集合
+        vector<Key> lock_set = {};  // lockをもっているkeyの集合
         bool is_done = false;
         Logic logic;
 
@@ -127,7 +127,6 @@ class DataBase {
             // -1 -> write lock
             // n > 0 -> read lock (by n threads)
             int nlock = 0;
-            vector<Transaction*> txs = {};
         };
 
         DataBase(Scheduler* scheduler, string dumpfilename, string logfilename);

@@ -145,8 +145,7 @@ static const unsigned int crc32tab[256] = {
 };
 
 
-unsigned int crc32(string str)
-{
+unsigned int crc32(string str) {
     unsigned int crcinit = 0;
     unsigned int crc = 0;
 

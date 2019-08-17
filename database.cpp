@@ -170,10 +170,12 @@ bool Transaction::has_key(Key key) {
 // --------------------------------- Scheduler ---------------------------------
 
 Scheduler::~Scheduler() {
+    ofstream ofs_graph(".seccampDB_graph");
     for (const auto& log : io_log_) {
-        printf("%d %s %c\n",
-                log.id, log.key.c_str(), (log.op == Read) ? 'r' : 'w');
+        ofs_graph<< log.id << " " << log.key << " " <<
+                ((log.op == Read) ? 'r' : 'w') << endl;
     }
+    ofs_graph.close();
 }
 
 void Scheduler::add_tx(Transaction::Logic logic) {
@@ -197,8 +199,6 @@ void Scheduler::start() {
 
 void Scheduler::run() {
     while (!transactions.empty()) {
-        // for (const auto& [key, l] : db_->table)
-        //     cout << key << " " << l.nlock << endl;
         unique_ptr<Transaction> tx = move(transactions.front());
         transactions.pop();
         wait(tx.get());

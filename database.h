@@ -91,9 +91,6 @@ class Scheduler {
         // starts spawning threads
         void start();
 
-        // Runs round-robin schedule
-        void run();
-
         void notify() { turn_ = true; cv_.notify_one(); }
 
         void log(int id, Key key, BaseOp rw) {
@@ -109,6 +106,9 @@ class Scheduler {
             Log(int id, Key key, BaseOp op);
         };
 
+        // Runs round-robin schedule
+        void run();
+
         void wait(Transaction* tx);
         bool turn_ = false;
         condition_variable cv_;
@@ -120,6 +120,7 @@ class Scheduler {
 class DataBase {
     public:
         struct RecordInfo {
+            // TODO: allow other types (string, char, ...)
             int value;
 
             // Reader/Writer lock
@@ -137,7 +138,6 @@ class DataBase {
 
         void apply_tx(Transaction* tx);
 
-        // TODO: allow other types (string, char, ...)
         // TODO: impl B+-tree (future work)
         map<Key, RecordInfo> table = {};
 
@@ -150,8 +150,8 @@ class DataBase {
         string make_log_format(ChangeMode mode, Key key, int value);
 
         Scheduler* scheduler_;
-        string dumpfilename_;
-        string logfilename_;
+        const string dumpfilename_;
+        const string logfilename_;
         int fd_log_;
         int id_counter_ = 0;  // for transaction ID
 

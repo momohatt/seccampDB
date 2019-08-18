@@ -160,4 +160,13 @@ class DataBase {
         // log file: [checksum] [key] [0/1] [value] (valueはDeleteの場合0)
 };
 
+class ConflictGraph {
+    public:
+        ConflictGraph();
+
+    private:
+        vector<int> node_;
+        vector<pair<int, int>> edge_;
+};
+
 #endif  // __DATABASE_H__

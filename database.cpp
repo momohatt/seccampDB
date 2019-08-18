@@ -168,12 +168,14 @@ bool Transaction::has_key(Key key) {
 // --------------------------------- Scheduler ---------------------------------
 
 Scheduler::~Scheduler() {
+    // Emit conflict graph to a file
     ofstream ofs_graph(".seccampDB_graph");
     for (const auto& log : io_log_) {
         ofs_graph<< log.id << " " << log.key << " " <<
                 ((log.op == Read) ? 'r' : 'w') << endl;
     }
     ofs_graph.close();
+    ConflictGraph graph;
 }
 
 void Scheduler::add_tx(Transaction::Logic logic) {
@@ -346,8 +348,6 @@ bool DataBase::get_lock(Transaction* tx, Key key, BaseOp locktype) {
 }
 
 void DataBase::apply_tx(Transaction* tx) {
-    LOG;
-
     string buf = serialize(tx->write_set);
     size_t nbytes_written = 0;
     while (nbytes_written < buf.size()) {
@@ -403,4 +403,28 @@ string DataBase::make_log_format(ChangeMode mode, Key key, int val) {
     buf += to_string(mode) + " ";
     buf += to_string(val) + "\n";
     return buf;
+}
+
+ConflictGraph::ConflictGraph() {
+    const string filename = ".seccampDB_graph";
+    ifstream ifs_graph(filename);
+    string line;
+    map<Key, vector<pair<int, BaseOp>>> tbl = {};
+
+    while (getline(ifs_graph, line)) {
+        vector<string> fields = words(line);
+        if (fields.size() != 3) {
+            UNREACHABLE;
+            return;
+        }
+        if (!vexists(node_, stoi(fields[0])))
+            node_.push_back(stoi(fields[0]));
+        tbl[fields[1]].emplace_back(
+                stoi(fields[0]),
+                fields[2] == "w" ? Write : Read);
+    }
+
+    // TODO: construct edge_
+
+    ifs_graph.close();
 }

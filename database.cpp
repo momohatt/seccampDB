@@ -210,9 +210,6 @@ void Scheduler::wait(Transaction* tx) {
     cv_.wait(lock_, [this]{ return turn_; });
 }
 
-Scheduler::Log::Log(int id, Key key, BaseOp op)
-  : id(id), key(key), op(op) {}
-
 // ---------------------------------- DataBase ---------------------------------
 
 DataBase::DataBase(Scheduler* scheduler, string dumpfilename, string logfilename)
@@ -421,7 +418,7 @@ ConflictGraph::ConflictGraph(vector<Scheduler::Log> logs) {
                     lock_holder_ids.push_back(myid);
                 } else if (nlock == -1) {
                     // write -> read conflict
-                    add_edge(lock_holder_ids[0], myid);
+                    add_edge(lock_holder_ids[0], myid, WriteRead);
                     lock_holder_ids = {myid};
                     nlock = 1;
                 }
@@ -431,11 +428,11 @@ ConflictGraph::ConflictGraph(vector<Scheduler::Log> logs) {
                 if (nlock >= 0) {
                     // read -> write conflict
                     for (const auto& other_id : lock_holder_ids) {
-                        add_edge(other_id, myid);
+                        add_edge(other_id, myid, ReadWrite);
                     }
                 } else if (nlock == -1) {
                     // write -> write conflict
-                    add_edge(lock_holder_ids[0], myid);
+                    add_edge(lock_holder_ids[0], myid, WriteWrite);
                 }
                 lock_holder_ids = {myid};
                 nlock = -1;
@@ -443,9 +440,6 @@ ConflictGraph::ConflictGraph(vector<Scheduler::Log> logs) {
             // cout << key << " " << l.first << " " << l.second << endl;
         }
     }
-
-    // for (const auto& e : edges_)
-    //     cout << e.first << " " << e.second << endl;
 }
 
 void ConflictGraph::emit() {
@@ -455,14 +449,18 @@ void ConflictGraph::emit() {
         fprintf(fp_out, "    Tx%d;\n", n);
     }
     for (const auto& e : edges_) {
-        fprintf(fp_out, "    Tx%d -> Tx%d;\n", e.first, e.second);
+        string conflict_type =
+            (e.type == ReadWrite) ? "r-w" :
+            (e.type == WriteRead) ? "w-r" : "w-w";
+        fprintf(fp_out, "    Tx%d -> Tx%d [label = \"%s\"];\n",
+                e.from, e.to, conflict_type.c_str());
     }
     fprintf(fp_out, "}\n");
     fclose(fp_out);
 }
 
-void ConflictGraph::add_edge(int u, int v) {
-    if (u == v)  // don't add loop
+void ConflictGraph::add_edge(int from, int to, ConflictType type) {
+    if (from == to)  // don't add loop
         return;
-    edges_.emplace_back(u, v);
+    edges_.emplace_back(from, to, type);
 }

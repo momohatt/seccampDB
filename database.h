@@ -90,7 +90,8 @@ class Scheduler {
             Key key;
             BaseOp op;
 
-            Log(int id, Key key, BaseOp op);
+            Log(int id, Key key, BaseOp op)
+                : id(id), key(key), op(op) {}
         };
 
         void add_tx(Transaction::Logic logic);
@@ -167,10 +168,25 @@ class ConflictGraph {
         void emit();
 
     private:
-        void add_edge(int u, int v);
+        enum ConflictType {
+            ReadWrite,
+            WriteRead,
+            WriteWrite,
+        };
+
+        struct EdgeInfo {
+            int from;
+            int to;
+            ConflictType type;
+
+            EdgeInfo(int from, int to, ConflictType type)
+                : from(from), to(to), type(type) {}
+        };
+
+        void add_edge(int from, int to, ConflictType type);
 
         vector<int> nodes_;
-        vector<pair<int, int>> edges_;
+        vector<EdgeInfo> edges_;
         const string graphfilename_ = "seccampDB_graph.dot";
 };
 

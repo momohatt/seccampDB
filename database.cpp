@@ -168,14 +168,8 @@ bool Transaction::has_key(Key key) {
 // --------------------------------- Scheduler ---------------------------------
 
 Scheduler::~Scheduler() {
-    // Emit conflict graph to a file
-    ofstream ofs_graph(".seccampDB_graph");
-    for (const auto& log : io_log_) {
-        ofs_graph<< log.id << " " << log.key << " " <<
-                ((log.op == Read) ? 'r' : 'w') << endl;
-    }
-    ofs_graph.close();
-    ConflictGraph graph;
+    ConflictGraph graph(io_log_);
+    graph.emit();
 }
 
 void Scheduler::add_tx(Transaction::Logic logic) {
@@ -405,23 +399,13 @@ string DataBase::make_log_format(ChangeMode mode, Key key, int val) {
     return buf;
 }
 
-ConflictGraph::ConflictGraph() {
-    const string filename = ".seccampDB_graph";
-    ifstream ifs_graph(filename);
-    string line;
+ConflictGraph::ConflictGraph(vector<Scheduler::Log> logs) {
     map<Key, vector<pair<int, BaseOp>>> tbl = {};
 
-    while (getline(ifs_graph, line)) {
-        vector<string> fields = words(line);
-        if (fields.size() != 3) {
-            UNREACHABLE;
-            return;
-        }
-        if (!vexists(nodes_, stoi(fields[0])))
-            nodes_.push_back(stoi(fields[0]));
-        tbl[fields[1]].emplace_back(
-                stoi(fields[0]),
-                fields[2] == "w" ? Write : Read);
+    for (const auto& log : logs) {
+        if (!vexists(nodes_, log.id))
+            nodes_.push_back(log.id);
+        tbl[log.key].emplace_back(log.id, log.op);
     }
 
     for (const auto& [key, logs] : tbl) {
@@ -448,8 +432,8 @@ ConflictGraph::ConflictGraph() {
             if (l.second == Write) {
                 if (nlock >= 0) {
                     // read -> write conflict
-                    for (const auto& others_id : lock_holder_ids) {
-                        edges_.emplace_back(others_id, myid);
+                    for (const auto& other_id : lock_holder_ids) {
+                        edges_.emplace_back(other_id, myid);
                     }
                 } else if (nlock == -1) {
                     // write -> write conflict
@@ -466,6 +450,16 @@ ConflictGraph::ConflictGraph() {
     for (const auto& e : edges_) {
         cout << e.first << " " << e.second << endl;
     }
+}
 
-    ifs_graph.close();
+void ConflictGraph::emit() {
+    ofstream ofs(graphfilename_);
+
+    ofs << "digraph g {" << endl;
+    for (const auto& e : edges_) {
+        ofs << "    Tx" << e.first << " -> Tx" << e.second << ";" << endl;
+    }
+    ofs << "}" << endl;
+
+    ofs.close();
 }

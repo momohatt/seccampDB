@@ -85,6 +85,14 @@ class Scheduler {
 
         ~Scheduler();
 
+        struct Log {
+            int id;
+            Key key;
+            BaseOp op;
+
+            Log(int id, Key key, BaseOp op);
+        };
+
         void add_tx(Transaction::Logic logic);
         void set_db(DataBase* db) { db_ = db; }
 
@@ -98,14 +106,6 @@ class Scheduler {
         }
 
     private:
-        struct Log {
-            int id;
-            Key key;
-            BaseOp op;
-
-            Log(int id, Key key, BaseOp op);
-        };
-
         // Runs round-robin schedule
         void run();
 
@@ -162,11 +162,14 @@ class DataBase {
 
 class ConflictGraph {
     public:
-        ConflictGraph();
+        ConflictGraph(vector<Scheduler::Log> logs);
+
+        void emit();
 
     private:
         vector<int> nodes_;
         vector<pair<int, int>> edges_;
+        const string graphfilename_ = "seccampDB_graph.dot";
 };
 
 #endif  // __DATABASE_H__

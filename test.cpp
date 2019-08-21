@@ -183,7 +183,7 @@ int main()
     TEST(test_abort);
     TEST(test_recover);
     TEST(test_read_read_conflict);
-    TEST(test_huge);
+    // TEST(test_huge);
     init();
     return 0;
 }

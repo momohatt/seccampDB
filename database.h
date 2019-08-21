@@ -167,6 +167,8 @@ class ConflictGraph {
         void emit();
 
     private:
+        void add_edge(int u, int v);
+
         vector<int> nodes_;
         vector<pair<int, int>> edges_;
         const string graphfilename_ = "seccampDB_graph.dot";

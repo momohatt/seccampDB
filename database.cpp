@@ -64,7 +64,6 @@ optional<int> Transaction::get(Key key) {
     TXLOG;
 
     if (!has_key(key)) {
-        cerr << "The key " << key << " doesn't exist" << endl;
         wait();
         return nullopt;
     }
@@ -94,7 +93,6 @@ bool Transaction::del(Key key) {
     TXLOG;
 
     if (!has_key(key)) {
-        cerr << "The key " << key << " doesn't exist" << endl;
         return true;
     }
     while (!db_->get_lock(this, key, Write)) {
@@ -423,7 +421,7 @@ ConflictGraph::ConflictGraph(vector<Scheduler::Log> logs) {
                     lock_holder_ids.push_back(myid);
                 } else if (nlock == -1) {
                     // write -> read conflict
-                    edges_.emplace_back(lock_holder_ids[0], myid);
+                    add_edge(lock_holder_ids[0], myid);
                     lock_holder_ids = {myid};
                     nlock = 1;
                 }
@@ -433,33 +431,38 @@ ConflictGraph::ConflictGraph(vector<Scheduler::Log> logs) {
                 if (nlock >= 0) {
                     // read -> write conflict
                     for (const auto& other_id : lock_holder_ids) {
-                        edges_.emplace_back(other_id, myid);
+                        add_edge(other_id, myid);
                     }
                 } else if (nlock == -1) {
                     // write -> write conflict
-                    edges_.emplace_back(lock_holder_ids[0], myid);
+                    add_edge(lock_holder_ids[0], myid);
                 }
                 lock_holder_ids = {myid};
                 nlock = -1;
             }
-
-            cout << key << " " << l.first << " " << l.second << endl;
+            // cout << key << " " << l.first << " " << l.second << endl;
         }
     }
 
-    for (const auto& e : edges_) {
-        cout << e.first << " " << e.second << endl;
-    }
+    // for (const auto& e : edges_)
+    //     cout << e.first << " " << e.second << endl;
 }
 
 void ConflictGraph::emit() {
-    ofstream ofs(graphfilename_);
-
-    ofs << "digraph g {" << endl;
-    for (const auto& e : edges_) {
-        ofs << "    Tx" << e.first << " -> Tx" << e.second << ";" << endl;
+    FILE* fp_out = fopen(graphfilename_.c_str(), "w");
+    fprintf(fp_out, "digraph g {\n");
+    for (const auto& n : nodes_) {
+        fprintf(fp_out, "    Tx%d;\n", n);
     }
-    ofs << "}" << endl;
+    for (const auto& e : edges_) {
+        fprintf(fp_out, "    Tx%d -> Tx%d;\n", e.first, e.second);
+    }
+    fprintf(fp_out, "}\n");
+    fclose(fp_out);
+}
 
-    ofs.close();
+void ConflictGraph::add_edge(int u, int v) {
+    if (u == v)  // don't add loop
+        return;
+    edges_.emplace_back(u, v);
 }

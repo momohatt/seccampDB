@@ -2,12 +2,12 @@
 #define __DATABASE_H__
 
 #include <condition_variable>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
 #include <thread>
 #include <vector>
-#include <functional>
 
 #include "utils.h"
 using namespace std;
@@ -165,6 +165,7 @@ class ConflictGraph {
     public:
         ConflictGraph(vector<Scheduler::Log> logs);
 
+        // Emits graph information to *.dot file for visualization
         void emit();
 
     private:
@@ -182,6 +183,10 @@ class ConflictGraph {
             EdgeInfo(int from, int to, ConflictType type)
                 : from(from), to(to), type(type) {}
         };
+
+        // Returns a serial schedule of transactions which is equivalent to
+        // the actual history
+        vector<int> serialize();
 
         void add_edge(int from, int to, ConflictType type);
 

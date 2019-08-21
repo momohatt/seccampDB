@@ -1,12 +1,15 @@
 #include "database.h"
 
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <mutex>
-#include <fstream>
-#include <cstdlib>
+#include <set>
+
 #include <fcntl.h>  // open
 #include <unistd.h>  // close
 #include <stdio.h>
+
 using namespace std;
 
 #define LOG   printf("[LOG]          %s::%d\n", __FUNCTION__, __LINE__);
@@ -444,6 +447,16 @@ ConflictGraph::ConflictGraph(vector<Scheduler::Log> logs) {
 
 void ConflictGraph::emit() {
     FILE* fp_out = fopen(graphfilename_.c_str(), "w");
+
+    vector<int> serial_schedule = serialize();
+
+    fprintf(fp_out, "/*\n");
+    fprintf(fp_out, "serial schedule:\n");
+    for (const auto& n : serial_schedule) {
+        fprintf(fp_out, "%d\n", n);
+    }
+    fprintf(fp_out, " */\n");
+
     fprintf(fp_out, "digraph g {\n");
     for (const auto& n : nodes_) {
         fprintf(fp_out, "    Tx%d;\n", n);
@@ -457,6 +470,54 @@ void ConflictGraph::emit() {
     }
     fprintf(fp_out, "}\n");
     fclose(fp_out);
+}
+
+vector<int> ConflictGraph::serialize() {  // 全然効率的ではないです
+    vector<int> ret = {};
+    map<int, set<int>> outgoing_edges = {};
+    map<int, set<int>> incoming_edges = {};
+    set<int> nodes_without_parent(nodes_.begin(), nodes_.end());
+
+    // initialization
+    for (const auto& e : edges_) {
+        if (outgoing_edges.count(e.from) <= 0) {
+            outgoing_edges[e.from] = {e.to};
+        } else {
+            outgoing_edges[e.from].insert(e.to);
+        }
+        if (incoming_edges.count(e.to) <= 0) {
+            incoming_edges[e.to] = {e.from};
+        } else {
+            incoming_edges[e.to].insert(e.from);
+        }
+    }
+
+    for (const auto& e : edges_) {
+        nodes_without_parent.erase(e.to);
+    }
+
+    // find serializable schedule
+    while (!nodes_without_parent.empty()) {
+        auto n = nodes_without_parent.begin();
+        int node = *n;
+        nodes_without_parent.erase(n);
+        ret.push_back(node);
+
+        for (const auto& m : outgoing_edges[node]) {
+            incoming_edges[m].erase(node);
+
+            if (incoming_edges[m].empty()) {
+                nodes_without_parent.insert(m);
+            }
+        }
+        outgoing_edges.erase(node);
+    }
+
+    // check if cycle exists
+    if (!outgoing_edges.empty()) {
+        return {};
+    }
+    return ret;
 }
 
 void ConflictGraph::add_edge(int from, int to, ConflictType type) {

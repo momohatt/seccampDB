@@ -165,8 +165,8 @@ class ConflictGraph {
         ConflictGraph();
 
     private:
-        vector<int> node_;
-        vector<pair<int, int>> edge_;
+        vector<int> nodes_;
+        vector<pair<int, int>> edges_;
 };
 
 #endif  // __DATABASE_H__

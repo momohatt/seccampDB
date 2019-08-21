@@ -417,14 +417,55 @@ ConflictGraph::ConflictGraph() {
             UNREACHABLE;
             return;
         }
-        if (!vexists(node_, stoi(fields[0])))
-            node_.push_back(stoi(fields[0]));
+        if (!vexists(nodes_, stoi(fields[0])))
+            nodes_.push_back(stoi(fields[0]));
         tbl[fields[1]].emplace_back(
                 stoi(fields[0]),
                 fields[2] == "w" ? Write : Read);
     }
 
-    // TODO: construct edge_
+    for (const auto& [key, logs] : tbl) {
+        int nlock = 0;
+        vector<int> lock_holder_ids = {};
+
+        for (const auto& l : logs) {
+            int myid = l.first;
+            int action = l.second;
+
+            if (action == Read) {
+                if (nlock >= 0) {
+                    // read -> read (no conflict)
+                    nlock++;
+                    lock_holder_ids.push_back(myid);
+                } else if (nlock == -1) {
+                    // write -> read conflict
+                    edges_.emplace_back(lock_holder_ids[0], myid);
+                    lock_holder_ids = {myid};
+                    nlock = 1;
+                }
+            }
+
+            if (l.second == Write) {
+                if (nlock >= 0) {
+                    // read -> write conflict
+                    for (const auto& others_id : lock_holder_ids) {
+                        edges_.emplace_back(others_id, myid);
+                    }
+                } else if (nlock == -1) {
+                    // write -> write conflict
+                    edges_.emplace_back(lock_holder_ids[0], myid);
+                }
+                lock_holder_ids = {myid};
+                nlock = -1;
+            }
+
+            cout << key << " " << l.first << " " << l.second << endl;
+        }
+    }
+
+    for (const auto& e : edges_) {
+        cout << e.first << " " << e.second << endl;
+    }
 
     ifs_graph.close();
 }

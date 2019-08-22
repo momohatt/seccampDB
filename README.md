@@ -2,8 +2,18 @@
 
 ## Build & Run
 ```
-$ make; ./main
-$ make test  # runs test
+$ make
+$ ./main
+```
+
+`main` generates following 3 files:
+* `.seccampDB_dump` : stores data for persistency
+* `.seccampDB_log` : stores redo log
+* `seccampDB_graph.dot` : keeps conflict graph of transaction history in dot format for visualization
+
+### test
+```
+$ make test
 ```
 
 ## Visualization of conflict graph
